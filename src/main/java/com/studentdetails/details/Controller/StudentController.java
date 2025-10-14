@@ -50,7 +50,7 @@ public class StudentController {
         return "Student with ID " + id + " deleted successfully";
     }
 
-    // UPDATE api
+    // UPDATE APIS
     @PutMapping("/{id}")
     public Student updateStudent (@PathVariable Long id, @RequestBody Student updatedStudent){
         return studentService.updateStudent(id, updatedStudent);
