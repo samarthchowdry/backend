@@ -1,25 +1,27 @@
 package com.studentdetails.details.Domain;
-
+import jakarta.persistence.*;
+import lombok.*;
+import org.antlr.v4.runtime.misc.NotNull;
 import java.time.LocalDate;
 
+@Getter
+@Setter
+@AllArgsConstructor
+@NoArgsConstructor
+@Data
+@Entity
+@Table(name = "students")
 public class Student {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @NotNull
+    @Column(name= "name")
     private String name;
+
+    @NotNull
+    @Column (name= "dob")
     private LocalDate dob;
-
-    public Student() {}
-
-    public Student(String name, LocalDate dob) {
-        this.name = name;
-        this.dob = dob;
-    }
-
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
-
-    public String getName() { return name; }
-    public void setName(String name) { this.name = name; }
-
-    public LocalDate getDob() { return dob; }
-    public void setDob(LocalDate dob) { this.dob = dob; }
 }
