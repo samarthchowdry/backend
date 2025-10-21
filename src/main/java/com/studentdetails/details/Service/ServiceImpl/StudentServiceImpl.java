@@ -2,97 +2,79 @@ package com.studentdetails.details.Service.ServiceImpl;
 import com.studentdetails.details.DTO.StudentDTO;
 import com.studentdetails.details.Domain.Student;
 import com.studentdetails.details.Mapper.StudentMapper;
+import com.studentdetails.details.Repository.StudentRepository;
 import com.studentdetails.details.Service.StudentService;
-import com.studentdetails.details.repository.StudentRepository;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @AllArgsConstructor
 @Service
 public class StudentServiceImpl implements StudentService {
 
-    private final StudentRepository studentRepository; // single repository field
-
-//    @Override
-//    public List<Student> getAllStudents() {
-//        return studentRepository.findAll();
-//    }
+    private final StudentRepository studentRepository;
+    private final StudentMapper studentMapper;  // Inject MapStruct mapper
 
     @Override
     public List<StudentDTO> getAllStudents() {
-        return studentRepository.findAll()
-                .stream()
-                .map(StudentMapper::toDTO)
-                .collect(Collectors.toList());
+        return studentMapper.toDto(studentRepository.findAll());
     }
 
 //    @Override
-//    public Student getStudentById(Long id) {
-//        Optional<Student> student = studentRepository.findById(id);
-//        return student.orElse(null);
-//    }
-
+//    public StudentDTO getStudentById(Long id) {
+//        Student student = studentRepository.findById(id).orElseThrow(() -> new RuntimeException("Student not found with id: " + id));
+//                .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(
+//                      org.springframework.http.HttpStatus.NOT_FOUND,
+//                    "Student not found with id: " + id
+//              ));
+//        return studentMapper.toDto(student);
     @Override
     public StudentDTO getStudentById(Long id) {
-        Student student = studentRepository.findById(id)
-                .orElseThrow(() -> new StudentNotFoundException(id));
-        return StudentMapper.toDTO(student);
-    }
-
-//    @Override
-//    public StudentDTO createStudent(StudentDTO studentDTO) {
-//        return null;
-//    }
+    Student student = studentRepository.findById(id)
+            .orElseThrow(() -> new StudentNotFoundException(id));
+    return studentMapper.toDto(student);
+}
 
     @Override
     public StudentDTO createStudent(StudentDTO studentDTO) {
-        Student student = StudentMapper.toEntity(studentDTO);
+        Student student = studentMapper.toEntity(studentDTO);
         Student savedStudent = studentRepository.save(student);
-        return StudentMapper.toDTO(savedStudent);
+        return studentMapper.toDto(savedStudent);
     }
 
 //    @Override
 //    public StudentDTO updateStudent(Long id, StudentDTO studentDTO) {
-//        return null;
+//        Student existingStudent = studentRepository.findById(id).orElseThrow(() -> new RuntimeException("Student not found with id: " + id));
+//        existingStudent.setName(studentDTO.getName());
+//        existingStudent.setDob(studentDTO.getDob());
+//        Student updatedStudent = studentRepository.save(existingStudent);
+//        return studentMapper.toDto(updatedStudent);
 //    }
 
     @Override
     public StudentDTO updateStudent(Long id, StudentDTO studentDTO) {
         Student existingStudent = studentRepository.findById(id)
                 .orElseThrow(() -> new StudentNotFoundException(id));
-
         existingStudent.setName(studentDTO.getName());
-        existingStudent.setDob(java.time.LocalDate.parse(studentDTO.getDob()));
-
+        existingStudent.setDob(studentDTO.getDob());
         Student updatedStudent = studentRepository.save(existingStudent);
-        return StudentMapper.toDTO(updatedStudent);
+        return studentMapper.toDto(updatedStudent);
     }
 
 //    @Override
-//    public Student createStudent(Student student) {
-//        return studentRepository.save(student); // saves to DB
-//    }
-
-//    @Override
-//    public Student updateStudent(Long id, Student updatedStudent) {
-//        if (studentRepository.existsById(id)) {
-//            updatedStudent.setId(id);
-//            return studentRepository.save(updatedStudent);
-//        }
-//        return null;
-//    }
-
-    //    @Override
 //    public void deleteStudent(Long id) {
+//        if (!studentRepository.existsById(id)) {
+//            throw new RuntimeException("Student not found with id: " + id);
+//        }
 //        studentRepository.deleteById(id);
     @Override
-    public void deleteStudent(Long id){
-        if (!studentRepository.existsById(id)) {
-            throw new StudentNotFoundException(id);
-        }
-        studentRepository.deleteById(id);
+    public void deleteStudent(Long id) {
+    if (!studentRepository.existsById(id)) {
+        throw new StudentNotFoundException(id);
+    }
+    studentRepository.deleteById(id);
+
     }
 }
+
