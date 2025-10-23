@@ -24,4 +24,18 @@ public class Student {
     @NotNull
     @Column (name= "dob")
     private LocalDate dob;
+
+    @NotNull
+    @Column(name="email")
+    private String email;
+
+    @NotNull
+    @Column(name="address")
+    private String address;
+
+    @NotNull
+    @Column(name="branch")
+    private String branch;
+
+
 }

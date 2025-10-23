@@ -58,6 +58,10 @@ public class StudentServiceImpl implements StudentService {
                 .orElseThrow(() -> new StudentNotFoundException(id));
         existingStudent.setName(studentDTO.getName());
         existingStudent.setDob(studentDTO.getDob());
+        existingStudent.setEmail(studentDTO.getEmail());
+        existingStudent.setAddress(studentDTO.getAddress());
+        existingStudent.setDob(studentDTO.getDob());
+        existingStudent.setBranch(studentDTO.getBranch());
         Student updatedStudent = studentRepository.save(existingStudent);
         return studentMapper.toDto(updatedStudent);
     }

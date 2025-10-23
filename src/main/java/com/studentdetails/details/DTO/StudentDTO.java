@@ -37,4 +37,7 @@ public class StudentDTO{
     private Long id;
     private String name;
     private LocalDate dob;
+    private String email;
+    private String address;
+    private String branch;
 }
