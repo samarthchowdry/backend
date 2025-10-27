@@ -1,11 +1,12 @@
 package com.studentdetails.details.Resources;
+
 import com.studentdetails.details.DTO.StudentDTO;
-import com.studentdetails.details.Domain.Student;
 import com.studentdetails.details.Service.StudentService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.time.LocalDate;
 import java.util.List;
+
 //restcontroller controls it
 @RestController
 @CrossOrigin(origins = "http://localhost:4200")
@@ -13,7 +14,6 @@ import java.util.List;
 public class StudentController {
 
     private final StudentService studentService;
-
 
     public StudentController(StudentService studentService) {
         this.studentService = studentService;
@@ -26,22 +26,32 @@ public class StudentController {
 //   }
 
     @GetMapping
-    public ResponseEntity<List<StudentDTO>> getAllStudents() {
-        return ResponseEntity.ok(studentService.getAllStudents());
+    public ResponseEntity<List<StudentDTO>> getAllStudents(
+            @RequestParam(name = "name", required = false) String name,
+            @RequestParam(name = "dob", required = false) String dob,
+            @RequestParam(name = "email", required = false) String email,
+            @RequestParam(name = "branch", required = false) String branch
+
+    ) {
+        LocalDate dateOfBirth = null;
+        if (dob != null && !dob.isEmpty()) {
+            dateOfBirth = LocalDate.parse(dob);
+        }
+        return ResponseEntity.ok(studentService.getFilteredStudents(name, dateOfBirth, email,branch));
     }
 
 
-//    @GetMapping("/{id}")
+    //    @GetMapping("/{id}")
 //    public Student getStudentById(@PathVariable Long id) {
 //        return studentService.getStudentById(id);
 //    }
     @GetMapping("/{id}")
     public ResponseEntity<StudentDTO> getStudentById(@PathVariable Long id) {
-    return ResponseEntity.ok(studentService.getStudentById(id));
+        return ResponseEntity.ok(studentService.getStudentById(id));
     }
 
 
-//    @PostMapping
+    //    @PostMapping
 //    public Student createStudent(@RequestBody Student student) {
 //        return studentService.createStudent(student);
 //    }
@@ -68,11 +78,11 @@ public class StudentController {
 
     @PutMapping("/{id}")
     public ResponseEntity<StudentDTO> updateStudent(
-        @PathVariable Long id,
-        @RequestBody StudentDTO studentDTO) {
-    StudentDTO updatedStudent = studentService.updateStudent(id, studentDTO);
-    return ResponseEntity.ok(updatedStudent);
-}
+            @PathVariable Long id,
+            @RequestBody StudentDTO studentDTO) {
+        StudentDTO updatedStudent = studentService.updateStudent(id, studentDTO);
+        return ResponseEntity.ok(updatedStudent);
+    }
 
 //    // UPDATE APIS
 //    @PutMapping("/{id}")
