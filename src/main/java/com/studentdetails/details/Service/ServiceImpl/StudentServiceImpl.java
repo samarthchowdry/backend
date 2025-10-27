@@ -7,6 +7,7 @@ import com.studentdetails.details.Service.StudentService;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @AllArgsConstructor
@@ -80,5 +81,29 @@ public class StudentServiceImpl implements StudentService {
     studentRepository.deleteById(id);
 
     }
+
+
+    @Override
+    public List<StudentDTO> getFilteredStudents(String name, LocalDate dateOfBirth, String email,String branch) {
+        List<Student> students;
+
+        // If no filters are provided, fetch all
+        if ((name == null || name.isEmpty()) &&
+                dateOfBirth == null &&
+                (email == null || email.isEmpty())&&
+                (branch == null || branch.isEmpty())) {
+            students = studentRepository.findAll();
+        } else {
+            students = studentRepository.findByFilters(
+                    (name != null && !name.isEmpty()) ? name : null,
+                    dateOfBirth,
+                    (email != null && !email.isEmpty()) ? email : null,
+                    (branch !=null && !branch.isEmpty()) ?branch: null
+            );
+        }
+
+        return studentMapper.toDto(students);
+    }
+
 }
 
