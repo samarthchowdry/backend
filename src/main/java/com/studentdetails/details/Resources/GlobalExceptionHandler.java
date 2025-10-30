@@ -1,6 +1,7 @@
 package com.studentdetails.details.Resources;
 
 import com.studentdetails.details.Service.ServiceImpl.StudentNotFoundException;
+import com.studentdetails.details.Service.ServiceImpl.CourseNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;
@@ -14,9 +15,9 @@ import java.util.Map;
 @ControllerAdvice
 public class GlobalExceptionHandler {
 
-    @ExceptionHandler(StudentNotFoundException.class)
-    public ResponseEntity<Map<String, Object>> handleStudentNotFoundException(
-            StudentNotFoundException ex,
+    @ExceptionHandler({StudentNotFoundException.class, CourseNotFoundException.class})
+    public ResponseEntity<Map<String, Object>> handleNotFoundExceptions(
+            RuntimeException ex,
             HttpServletRequest request
     ) {
         HttpStatus status = HttpStatus.NOT_FOUND;
