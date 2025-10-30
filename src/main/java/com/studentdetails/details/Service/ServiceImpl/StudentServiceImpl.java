@@ -1,13 +1,16 @@
 package com.studentdetails.details.Service.ServiceImpl;
 import com.studentdetails.details.DTO.StudentDTO;
+import com.studentdetails.details.Domain.Course;
 import com.studentdetails.details.Domain.Student;
 import com.studentdetails.details.Mapper.StudentMapper;
+import com.studentdetails.details.Repository.CourseRepository;
 import com.studentdetails.details.Repository.StudentRepository;
 import com.studentdetails.details.Service.StudentService;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 
 @AllArgsConstructor
@@ -15,6 +18,7 @@ import java.util.List;
 public class StudentServiceImpl implements StudentService {
 
     private final StudentRepository studentRepository;
+    private final CourseRepository courseRepository;
     private final StudentMapper studentMapper;  // Inject MapStruct mapper
 
     @Override
@@ -40,6 +44,14 @@ public class StudentServiceImpl implements StudentService {
     @Override
     public StudentDTO createStudent(StudentDTO studentDTO) {
         Student student = studentMapper.toEntity(studentDTO);
+        // Set courses if courseIds are provided
+        if (studentDTO.getCourseIds() != null && !studentDTO.getCourseIds().isEmpty()) {
+            List<Course> courses = studentDTO.getCourseIds().stream()
+                    .map(id -> courseRepository.findById(id)
+                            .orElseThrow(() -> new RuntimeException("Course not found with id: " + id)))
+                    .toList();
+            student.setCourses(courses);
+        }
         Student savedStudent = studentRepository.save(student);
         return studentMapper.toDto(savedStudent);
     }
@@ -55,14 +67,29 @@ public class StudentServiceImpl implements StudentService {
 
     @Override
     public StudentDTO updateStudent(Long id, StudentDTO studentDTO) {
-        Student existingStudent = studentRepository.findById(id)
+        Student existingStudent = studentRepository.findByIdWithCourses(id)
                 .orElseThrow(() -> new StudentNotFoundException(id));
         existingStudent.setName(studentDTO.getName());
         existingStudent.setDob(studentDTO.getDob());
         existingStudent.setEmail(studentDTO.getEmail());
         existingStudent.setAddress(studentDTO.getAddress());
-        existingStudent.setDob(studentDTO.getDob());
         existingStudent.setBranch(studentDTO.getBranch());
+        
+        // Update courses if provided
+        if (studentDTO.getCourseIds() != null) {
+            // Clear existing courses first
+            existingStudent.getCourses().clear();
+            
+            if (!studentDTO.getCourseIds().isEmpty()) {
+                // Fetch and add new courses
+                studentDTO.getCourseIds().forEach(courseId -> {
+                    Course course = courseRepository.findById(courseId)
+                            .orElseThrow(() -> new RuntimeException("Course not found with id: " + courseId));
+                    existingStudent.getCourses().add(course);
+                });
+            }
+        }
+        
         Student updatedStudent = studentRepository.save(existingStudent);
         return studentMapper.toDto(updatedStudent);
     }

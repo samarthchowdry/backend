@@ -30,6 +30,8 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
 
+import java.util.List;
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -40,4 +42,6 @@ public class StudentDTO{
     private String email;
     private String address;
     private String branch;
+    private List<Long> courseIds; // List of course IDs
+    private List<String> courseNames; // List of course names for display
 }

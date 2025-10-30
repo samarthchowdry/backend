@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 public interface StudentRepository extends JpaRepository<Student, Long> {
 
@@ -18,5 +19,8 @@ public interface StudentRepository extends JpaRepository<Student, Long> {
                                 @Param("dob") LocalDate dob,
                                 @Param("email") String email,
                                 @Param("branch") String branch);
+
+    @Query("SELECT DISTINCT s FROM Student s LEFT JOIN FETCH s.courses WHERE s.id = :id")
+    Optional<Student> findByIdWithCourses(@Param("id") Long id);
 
 }
