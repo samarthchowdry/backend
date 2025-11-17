@@ -9,16 +9,18 @@ import org.mapstruct.Named;
 import java.util.ArrayList;
 import java.util.List;
 
-@Mapper(componentModel = "spring", nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
+@Mapper(componentModel = "spring", nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE, uses = {StudentMarkMapper.class})
 public interface StudentMapper extends EntityMapper<StudentDTO, Student> {
 
     @Override
     @Mapping(target = "courseIds", source = "courses", qualifiedByName = "mapCoursesToIds")
     @Mapping(target = "courseNames", source = "courses", qualifiedByName = "mapCoursesToNames")
+    @Mapping(target = "marks", source = "marks")
     StudentDTO toDto(Student student);
 
     @Override
     @Mapping(target = "courses", ignore = true) // Ignore courses when converting from DTO to entity
+    @Mapping(target = "marks", ignore = true)
     Student toEntity(StudentDTO studentDTO);
 
     @Named("mapCoursesToIds")
@@ -26,6 +28,7 @@ public interface StudentMapper extends EntityMapper<StudentDTO, Student> {
         if (courses == null) return new ArrayList<>();
         return courses.stream()
                 .map(com.studentdetails.details.Domain.Course::getId)
+                .distinct()
                 .toList();
     }
 
@@ -34,6 +37,7 @@ public interface StudentMapper extends EntityMapper<StudentDTO, Student> {
         if (courses == null) return new ArrayList<>();
         return courses.stream()
                 .map(com.studentdetails.details.Domain.Course::getName)
+                .distinct()
                 .toList();
     }
 }

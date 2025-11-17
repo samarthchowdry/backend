@@ -1,4 +1,4 @@
-package com.studentdetails.details.Service.ServiceImpl;
+package com.studentdetails.details.Exception;
 
 import java.io.Serial;
 import org.springframework.http.HttpStatus;
@@ -17,11 +17,4 @@ public class StudentNotFoundException extends RuntimeException {
         super("Student not found with id: " + id);
     }
 
-    public StudentNotFoundException(String message) {
-        super(message);
-    }
-
-    public StudentNotFoundException(Long id, Throwable cause) {
-        super("Student not found with id: " + id, cause);
-    }
 }

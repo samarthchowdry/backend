@@ -31,40 +31,48 @@ public class CourseController {
         return ResponseEntity.ok(courseService.getCourseById(id));
     }
 
+    @GetMapping("/count")
+    public ResponseEntity<Long> getCourseCount() {
+        return ResponseEntity.ok(courseService.countCourses());
+    }
+
     @PostMapping
-    public ResponseEntity<CourseDTO> createCourse(@RequestBody CourseDTO courseDTO) {
-        CourseDTO createdCourse = courseService.createCourse(courseDTO);
-        return ResponseEntity.ok(createdCourse);
+    public ResponseEntity<CourseDTO> createCourse(
+            @RequestBody CourseDTO courseDTO,
+            @RequestHeader(name = "X-Role", required = false) String roleHeader) {
+        return ResponseEntity.ok(courseService.createCourseWithAuth(courseDTO, roleHeader));
     }
 
     @PutMapping("/{id}")
     public ResponseEntity<CourseDTO> updateCourse(
             @PathVariable Long id,
-            @RequestBody CourseDTO courseDTO) {
-        CourseDTO updatedCourse = courseService.updateCourse(id, courseDTO);
-        return ResponseEntity.ok(updatedCourse);
+            @RequestBody CourseDTO courseDTO,
+            @RequestHeader(name = "X-Role", required = false) String roleHeader) {
+        return ResponseEntity.ok(courseService.updateCourseWithAuth(id, courseDTO, roleHeader));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<String> deleteCourse(@PathVariable Long id) {
-        courseService.deleteCourse(id);
+    public ResponseEntity<String> deleteCourse(
+            @PathVariable Long id,
+            @RequestHeader(name = "X-Role", required = false) String roleHeader) {
+        courseService.deleteCourseWithAuth(id, roleHeader);
         return ResponseEntity.ok("Course with ID " + id + " deleted successfully");
     }
 
     @PostMapping("/{courseId}/students/{studentId}")
     public ResponseEntity<CourseDTO> addStudentToCourse(
             @PathVariable Long courseId,
-            @PathVariable Long studentId) {
-        CourseDTO course = courseService.addStudentToCourse(courseId, studentId);
-        return ResponseEntity.ok(course);
+            @PathVariable Long studentId,
+            @RequestHeader(name = "X-Role", required = false) String roleHeader) {
+        return ResponseEntity.ok(courseService.addStudentToCourseWithAuth(courseId, studentId, roleHeader));
     }
 
     @DeleteMapping("/{courseId}/students/{studentId}")
     public ResponseEntity<CourseDTO> removeStudentFromCourse(
             @PathVariable Long courseId,
-            @PathVariable Long studentId) {
-        CourseDTO course = courseService.removeStudentFromCourse(courseId, studentId);
-        return ResponseEntity.ok(course);
+            @PathVariable Long studentId,
+            @RequestHeader(name = "X-Role", required = false) String roleHeader) {
+        return ResponseEntity.ok(courseService.removeStudentFromCourseWithAuth(courseId, studentId, roleHeader));
     }
 
     @GetMapping("/student/{studentId}")
@@ -72,4 +80,3 @@ public class CourseController {
         return ResponseEntity.ok(courseService.getCoursesByStudent(studentId));
     }
 }
-

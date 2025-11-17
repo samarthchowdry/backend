@@ -1,6 +1,6 @@
 spring:
   datasource:
-    url: jdbc:mysql://localhost:3306/studentdb1
+    url: jdbc:mysql://localhost:3306/studentdb2
     username: root
     password: aA@94495
     driver-class-name: com.mysql.cj.jdbc.Driver
@@ -8,7 +8,11 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update   # creates/updates tables automatically
-    show-sql: true       # shows SQL queries in the console
+    show-sql: false       # shows SQL queries in the console
     properties:
       hibernate:
         dialect: org.hibernate.dialect.MySQL8Dialect
+
+google:
+#  clientId: YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com
+   clientId: 1084932926067-r73ufmbchmbskh7e1agvplfh82ic68f5.apps.googleusercontent.com
