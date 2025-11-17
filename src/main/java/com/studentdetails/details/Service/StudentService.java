@@ -1,6 +1,9 @@
 package com.studentdetails.details.Service;
+import com.studentdetails.details.DTO.MarksCardDTO;
 import com.studentdetails.details.DTO.StudentDTO;
+import com.studentdetails.details.DTO.StudentMarkDTO;
 import com.studentdetails.details.Domain.Student;
+import com.studentdetails.details.DTO.StudentPerformanceDTO;
 //
 import java.time.LocalDate;
 import java.util.List;
@@ -17,6 +20,22 @@ public interface StudentService {
     StudentDTO updateStudent(Long id, StudentDTO studentDTO);
     void deleteStudent(Long id);
 
+    long countStudents();
+
     List<StudentDTO> getFilteredStudents(String name, LocalDate dateOfBirth, String email, String branch);
+
+    String bulkUploadStudents(org.springframework.web.multipart.MultipartFile file);
+    String bulkUpdateStudents(org.springframework.web.multipart.MultipartFile file);
+
+    StudentMarkDTO addMark(Long studentId, StudentMarkDTO markDTO);
+
+    StudentMarkDTO updateMark(Long studentId, Long markId, StudentMarkDTO markDTO);
+
+    List<StudentMarkDTO> getMarks(Long studentId);
+
+    MarksCardDTO getMarksCard(Long studentId);
+
+    List<StudentPerformanceDTO> getStudentPerformanceSummary();
+
 }
 

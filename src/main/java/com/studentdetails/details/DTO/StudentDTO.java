@@ -44,4 +44,5 @@ public class StudentDTO{
     private String branch;
     private List<Long> courseIds; // List of course IDs
     private List<String> courseNames; // List of course names for display
+    private List<StudentMarkDTO> marks;
 }

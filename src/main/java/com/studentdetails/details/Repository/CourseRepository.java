@@ -8,10 +8,13 @@ import java.util.List;
 
 public interface CourseRepository extends JpaRepository<Course, Long> {
 
-    @Query("SELECT c FROM Course c WHERE " +
+    @Query("SELECT DISTINCT c FROM Course c LEFT JOIN FETCH c.students WHERE " +
             "(:name IS NULL OR LOWER(c.name) LIKE LOWER(CONCAT('%', :name, '%'))) AND " +
             "(:code IS NULL OR LOWER(c.code) LIKE LOWER(CONCAT('%', :code, '%')))")
     List<Course> findByFilters(@Param("name") String name,
                                 @Param("code") String code);
+
+    @Query("SELECT DISTINCT c FROM Course c LEFT JOIN FETCH c.students")
+    List<Course> findAll();
 }
 
