@@ -12,6 +12,7 @@ import java.util.Optional;
 public interface StudentRepository extends JpaRepository<Student, Long> {
 
     @Query("SELECT DISTINCT s FROM Student s LEFT JOIN FETCH s.courses LEFT JOIN FETCH s.marks WHERE " +
+            "(:id IS NULL OR s.id = :id) AND " +
             "(:name IS NULL OR LOWER(s.name) LIKE LOWER(CONCAT('%', :name, '%'))) AND " +
             "(:email IS NULL OR LOWER(s.email) LIKE LOWER(CONCAT('%', :email, '%'))) AND " +
             "(:dob IS NULL OR s.dob = :dob) AND " +
@@ -19,7 +20,8 @@ public interface StudentRepository extends JpaRepository<Student, Long> {
     List<Student> findByFilters(@Param("name") String name,
                                 @Param("dob") LocalDate dob,
                                 @Param("email") String email,
-                                @Param("branch") String branch);
+                                @Param("branch") String branch,
+                                @Param("id") Long id);
 
     @Query("SELECT DISTINCT s FROM Student s LEFT JOIN FETCH s.courses LEFT JOIN FETCH s.marks")
     List<Student> findAll();

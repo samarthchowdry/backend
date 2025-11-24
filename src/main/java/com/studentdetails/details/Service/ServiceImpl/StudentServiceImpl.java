@@ -14,6 +14,8 @@ import com.studentdetails.details.Repository.CourseRepository;
 import com.studentdetails.details.Repository.GradeScaleRepository;
 import com.studentdetails.details.Repository.StudentMarkRepository;
 import com.studentdetails.details.Repository.StudentRepository;
+import com.studentdetails.details.Service.EmailService;
+import com.studentdetails.details.Service.NotificationService;
 import com.studentdetails.details.Service.StudentService;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -42,6 +44,8 @@ public class StudentServiceImpl implements StudentService {
     private final GradeScaleRepository gradeScaleRepository;
     private final StudentMapper studentMapper;  // Inject MapStruct mapper
     private final StudentMarkMapper studentMarkMapper;
+    private final EmailService emailService;
+    private final NotificationService notificationService;
 
     @Override
     public List<StudentDTO> getAllStudents() {
@@ -70,6 +74,28 @@ public class StudentServiceImpl implements StudentService {
             student.setCourses(new ArrayList<>(courses));
         }
         Student savedStudent = studentRepository.save(student);
+        
+        // Send email notification
+        try {
+            String subject = "Welcome to Student Management System";
+            String body = String.format("Hello %s,\n\nYou have been successfully added to the Student Management System.\n\nStudent ID: %d\nEmail: %s\nBranch: %s\n\nWelcome aboard!", 
+                savedStudent.getName(), savedStudent.getId(), savedStudent.getEmail(), savedStudent.getBranch());
+            emailService.sendEmail(savedStudent.getEmail(), subject, body);
+        } catch (Exception e) {
+            // Log but don't fail the student creation
+            System.err.println("Failed to send welcome email: " + e.getMessage());
+        }
+        
+        // Create in-app notification for admin
+        try {
+            notificationService.createNotification(
+                "New Student Added",
+                String.format("Student %s (ID: %d) has been added to the system.", savedStudent.getName(), savedStudent.getId())
+            );
+        } catch (Exception e) {
+            System.err.println("Failed to create notification: " + e.getMessage());
+        }
+        
         return studentMapper.toDto(savedStudent);
     }
 
@@ -112,21 +138,23 @@ public class StudentServiceImpl implements StudentService {
     }
 
     @Override
-    public List<StudentDTO> getFilteredStudents(String name, LocalDate dateOfBirth, String email,String branch) {
+    public List<StudentDTO> getFilteredStudents(String name, LocalDate dateOfBirth, String email,String branch, Long id) {
         List<Student> students;
 
         // If no filters are provided, fetch all
         if ((name == null || name.isEmpty()) &&
                 dateOfBirth == null &&
                 (email == null || email.isEmpty())&&
-                (branch == null || branch.isEmpty())) {
+                (branch == null || branch.isEmpty()) &&
+                id == null) {
             students = studentRepository.findAll();
         } else {
             students = studentRepository.findByFilters(
                     (name != null && !name.isEmpty()) ? name : null,
                     dateOfBirth,
                     (email != null && !email.isEmpty()) ? email : null,
-                    (branch !=null && !branch.isEmpty()) ?branch: null
+                    (branch !=null && !branch.isEmpty()) ?branch: null,
+                    id
             );
         }
 
@@ -290,6 +318,21 @@ public class StudentServiceImpl implements StudentService {
         mark.setGrade(calculateGrade(markDTO.getScore(), markDTO.getMaxScore()));
         StudentMark saved = studentMarkRepository.save(mark);
         student.getMarks().add(saved);
+        
+        // Create in-app notification for admin
+        try {
+            notificationService.createNotification(
+                "Marks Updated",
+                String.format("Marks for %s in %s have been added/updated. Score: %.2f/%s", 
+                    student.getName(), 
+                    markDTO.getSubject() != null ? markDTO.getSubject() : "N/A",
+                    markDTO.getScore(),
+                    markDTO.getMaxScore() != null ? markDTO.getMaxScore().toString() : "N/A")
+            );
+        } catch (Exception e) {
+            System.err.println("Failed to create notification: " + e.getMessage());
+        }
+        
         return studentMarkMapper.toDto(saved);
     }
 
@@ -353,6 +396,23 @@ public class StudentServiceImpl implements StudentService {
 
         mark.setGrade(calculateGrade(score, maxScore));
         StudentMark saved = studentMarkRepository.save(mark);
+        
+        // Create in-app notification for admin
+        try {
+            Student student = studentRepository.findById(studentId)
+                    .orElseThrow(() -> new StudentNotFoundException(studentId));
+            notificationService.createNotification(
+                "Marks Updated",
+                String.format("Marks for %s in %s have been updated. Score: %.2f/%s", 
+                    student.getName(), 
+                    saved.getSubject() != null ? saved.getSubject() : "N/A",
+                    saved.getScore(),
+                    saved.getMaxScore() != null ? saved.getMaxScore().toString() : "N/A")
+            );
+        } catch (Exception e) {
+            System.err.println("Failed to create notification: " + e.getMessage());
+        }
+        
         return studentMarkMapper.toDto(saved);
     }
 

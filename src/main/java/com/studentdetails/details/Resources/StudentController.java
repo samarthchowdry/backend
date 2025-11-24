@@ -37,14 +37,15 @@ public class StudentController {
             @RequestParam(name = "name", required = false) String name,
             @RequestParam(name = "dob", required = false) String dob,
             @RequestParam(name = "email", required = false) String email,
-            @RequestParam(name = "branch", required = false) String branch
+            @RequestParam(name = "branch", required = false) String branch,
+            @RequestParam(name = "id", required = false) Long id
 
     ) {
         LocalDate dateOfBirth = null;
         if (dob != null && !dob.isEmpty()) {
             dateOfBirth = LocalDate.parse(dob);
         }
-        return ResponseEntity.ok(studentService.getFilteredStudents(name, dateOfBirth, email,branch));
+        return ResponseEntity.ok(studentService.getFilteredStudents(name, dateOfBirth, email,branch, id));
     }
 
     @GetMapping("/count")

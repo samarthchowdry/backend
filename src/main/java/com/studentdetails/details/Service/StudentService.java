@@ -22,7 +22,7 @@ public interface StudentService {
 
     long countStudents();
 
-    List<StudentDTO> getFilteredStudents(String name, LocalDate dateOfBirth, String email, String branch);
+    List<StudentDTO> getFilteredStudents(String name, LocalDate dateOfBirth, String email, String branch, Long id);
 
     String bulkUploadStudents(org.springframework.web.multipart.MultipartFile file);
     String bulkUpdateStudents(org.springframework.web.multipart.MultipartFile file);
