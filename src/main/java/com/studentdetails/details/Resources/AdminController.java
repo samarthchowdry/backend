@@ -4,6 +4,8 @@ import com.studentdetails.details.Domain.EmailNotification;
 import com.studentdetails.details.Domain.Notification;
 import com.studentdetails.details.Domain.UserRole;
 import com.studentdetails.details.DTO.BroadcastEmailRequest;
+import com.studentdetails.details.DTO.IndividualEmailRequest;
+import com.studentdetails.details.DTO.IndividualEmailResponse;
 import com.studentdetails.details.Service.AdminCommunicationService;
 import com.studentdetails.details.Service.EmailService;
 import com.studentdetails.details.Service.NotificationService;
@@ -72,6 +74,18 @@ public class AdminController {
                 "recipients", recipients,
                 "subject", request.subject()
         ));
+    }
+
+    @PostMapping("/email-student")
+    public ResponseEntity<IndividualEmailResponse> sendEmailToStudent(
+            @RequestHeader(name = "X-Role", required = false) String roleHeader,
+            @RequestParam(name = "role", required = false) String roleQueryParam,
+            @Valid @RequestBody IndividualEmailRequest request) {
+        UserRole role = resolveRole(roleHeader, roleQueryParam);
+        enforceAdminRole(role);
+        IndividualEmailResponse response = adminCommunicationService.sendEmailToStudent(
+                request.studentId(), request.subject(), request.message());
+        return ResponseEntity.ok(response);
     }
 
     @DeleteMapping("/in-app-notifications")
