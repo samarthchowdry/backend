@@ -1,5 +1,4 @@
 package com.studentdetails.details.Domain;
-
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
