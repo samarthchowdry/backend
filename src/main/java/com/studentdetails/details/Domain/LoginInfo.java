@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Getter
 @Setter
@@ -40,4 +41,27 @@ public class LoginInfo {
     @Enumerated(EnumType.STRING)
     @Column(name = "role", nullable = false, length = 32)
     private UserRole role;
+
+    @Column(name = "is_project_admin", nullable = false)
+    private Boolean projectAdmin;
+
+    @Column(name = "password")
+    private String password;
+
+    @PrePersist
+    @PreUpdate
+    private void ensureDefaults() {
+        if (googleSub == null || googleSub.isBlank()) {
+            googleSub = UUID.randomUUID().toString();
+        }
+        if (role == null) {
+            role = UserRole.STUDENT;
+        }
+        if (lastLoginAt == null) {
+            lastLoginAt = LocalDateTime.now();
+        }
+        if (projectAdmin == null) {
+            projectAdmin = Boolean.FALSE;
+        }
+    }
 }

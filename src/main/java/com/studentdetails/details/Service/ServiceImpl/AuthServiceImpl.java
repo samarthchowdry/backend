@@ -79,27 +79,51 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public ResponseEntity<?> completeGoogleSignup(Map<String, String> body) {
-        String googleSub = body.get("googleSub");
-        String email = body.get("email");
+        String googleSubRaw = body.get("googleSub");
+        String emailRaw = body.get("email");
+        String googleSub = googleSubRaw != null ? googleSubRaw.trim() : null;
+        String email = emailRaw != null ? emailRaw.trim() : null;
+        boolean hasGoogleSub = googleSub != null && !googleSub.isBlank();
+        boolean hasEmail = email != null && !email.isBlank();
 
-        if ((googleSub == null || googleSub.isBlank()) && (email == null || email.isBlank())) {
+        if (!hasGoogleSub && !hasEmail) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("googleSub or email is required");
         }
 
-        var loginInfoOptional = loginInfoRepository.findByGoogleSub(googleSub);
-        if (loginInfoOptional.isEmpty() && email != null && !email.isBlank()) {
+        Optional<LoginInfo> loginInfoOptional = Optional.empty();
+        if (hasGoogleSub) {
+            loginInfoOptional = loginInfoRepository.findByGoogleSub(googleSub);
+        }
+        if (loginInfoOptional.isEmpty() && hasEmail) {
             loginInfoOptional = loginInfoRepository.findByEmail(email);
         }
 
-        if (loginInfoOptional.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Account not found. Please sign in with Google first.");
+        if (loginInfoOptional.isEmpty() && !hasEmail) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body("email is required to create a new account");
         }
 
-        LoginInfo loginInfo = loginInfoOptional.get();
-        loginInfo.setEmail(email);
+        String resolvedGoogleSub = hasGoogleSub ? googleSub : UUID.randomUUID().toString();
+
+        LoginInfo loginInfo = loginInfoOptional.orElseGet(() -> LoginInfo.builder()
+                .googleSub(resolvedGoogleSub)
+                .email(email)
+                .role(UserRole.STUDENT)
+                .build());
+
+        loginInfo.setGoogleSub(resolvedGoogleSub);
+        if (hasEmail) {
+            loginInfo.setEmail(email);
+        }
         loginInfo.setFullName(body.get("name"));
         loginInfo.setPictureUrl(body.get("picture"));
         loginInfo.setLastLoginAt(LocalDateTime.now());
+        if (loginInfo.getRole() == null) {
+            loginInfo.setRole(UserRole.STUDENT);
+        }
+        if (loginInfo.getProjectAdmin() == null) {
+            loginInfo.setProjectAdmin(Boolean.FALSE);
+        }
 
         try {
             LoginInfo saved = loginInfoRepository.save(loginInfo);
@@ -127,17 +151,20 @@ public class AuthServiceImpl implements AuthService {
         String googleSub = body.get("googleSub");
 
         if ((email == null || email.isBlank()) && (googleSub == null || googleSub.isBlank())) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("email or googleSub is required");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("message", "email or googleSub is required"));
         }
         if (roleValue == null || roleValue.isBlank()) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("role is required");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("message", "role is required"));
         }
 
         UserRole newRole;
         try {
             newRole = UserRole.valueOf(roleValue.trim().toUpperCase());
         } catch (IllegalArgumentException ex) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid role value");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("message", "Invalid role value"));
         }
 
         Optional<LoginInfo> loginInfoOptional = Optional.empty();
@@ -149,7 +176,8 @@ public class AuthServiceImpl implements AuthService {
         }
 
         if (loginInfoOptional.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("User not found");
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("message", "User not found"));
         }
 
         LoginInfo loginInfo = loginInfoOptional.get();
