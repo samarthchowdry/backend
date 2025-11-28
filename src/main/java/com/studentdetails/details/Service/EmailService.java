@@ -1,5 +1,5 @@
 package com.studentdetails.details.Service;
-
+//email service
 import com.studentdetails.details.Domain.EmailNotification;
 import java.util.List;
 
