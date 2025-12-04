@@ -24,7 +24,6 @@ import java.util.Map;
 public class EmailServiceImpl implements EmailService {
 
     private static final int MAX_RETRIES = 3;
-
     private final JavaMailSender mailSender;
     private final EmailNotificationRepository emailNotificationRepository;
     private final TemplateEngine templateEngine;

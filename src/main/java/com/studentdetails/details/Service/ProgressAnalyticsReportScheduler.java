@@ -8,6 +8,7 @@ import com.studentdetails.details.DTO.StudentProgressReportResponseDTO;
 import com.studentdetails.details.Repository.DailyReportLogRepository;
 import com.studentdetails.details.Repository.LoginInfoRepository;
 import com.studentdetails.details.Service.NotificationService;
+import com.studentdetails.details.Utility.CsvUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -109,7 +110,7 @@ public class ProgressAnalyticsReportScheduler {
             log.info("CSV file created, size: {} bytes", csvBytes.length);
 
             // Get admin email from database (most recently logged in admin)
-            String recipientEmail = getAdminEmail();
+            String recipientEmail = CsvUtil.getAdminEmail(loginInfoRepository);
             if (recipientEmail == null || recipientEmail.isBlank()) {
                 String errorMsg = "No admin user found in database. Please ensure an admin has logged in.";
                 log.error("✗ {}", errorMsg);
@@ -168,34 +169,24 @@ public class ProgressAnalyticsReportScheduler {
         // Data rows
         if (report.getStudents() != null) {
             for (StudentProgressReportDTO student : report.getStudents()) {
-                csv.append(escapeCsvValue(student.getStudentName() != null ? student.getStudentName() : "")).append(",");
-                csv.append(escapeCsvValue(student.getBranch() != null ? student.getBranch() : "")).append(",");
+                csv.append(CsvUtil.escapeCsvValue(CsvUtil.safeString(student.getStudentName()))).append(",");
+                csv.append(CsvUtil.escapeCsvValue(CsvUtil.safeString(student.getBranch()))).append(",");
                 csv.append(student.getTotalAssessments()).append(",");
-                csv.append(student.getOverallAverageScore() != null ? student.getOverallAverageScore() : "").append(",");
-                csv.append(student.getOverallPercentage() != null ? student.getOverallPercentage() : "").append(",");
-                csv.append(escapeCsvValue(student.getLastAssessmentDate() != null ? student.getLastAssessmentDate().toString() : "")).append("\n");
+                csv.append(CsvUtil.formatDouble(student.getOverallAverageScore())).append(",");
+                csv.append(CsvUtil.formatDouble(student.getOverallPercentage())).append(",");
+                csv.append(CsvUtil.escapeCsvValue(student.getLastAssessmentDate() != null ? student.getLastAssessmentDate().toString() : "")).append("\n");
             }
         }
         
         return csv.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
     }
     
-    private String escapeCsvValue(String value) {
-        if (value == null) {
-            return "";
-        }
-        // If value contains comma, quote, or newline, wrap in quotes and escape quotes
-        if (value.contains(",") || value.contains("\"") || value.contains("\n")) {
-            return "\"" + value.replace("\"", "\"\"") + "\"";
-        }
-        return value;
-    }
 
     /**
      * Public method to get admin email for testing purposes.
      */
     public String getAdminEmailForTesting() {
-        return getAdminEmail();
+        return CsvUtil.getAdminEmail(loginInfoRepository);
     }
 
     /**
@@ -215,35 +206,6 @@ public class ProgressAnalyticsReportScheduler {
         }
     }
 
-    /**
-     * Gets the email address of the most recently logged in admin user.
-     * If no admin is found, returns null.
-     */
-    private String getAdminEmail() {
-        try {
-            Optional<LoginInfo> admin = loginInfoRepository.findFirstByRoleOrderByLastLoginAtDesc(UserRole.ADMIN);
-            if (admin.isPresent()) {
-                String email = admin.get().getEmail();
-                log.info("Found admin email from database: {} (last login: {})", 
-                        email, admin.get().getLastLoginAt());
-                return email;
-            } else {
-                log.warn("No admin user found in database. Checking all admin users...");
-                List<LoginInfo> admins = loginInfoRepository.findByRole(UserRole.ADMIN);
-                if (!admins.isEmpty()) {
-                    String email = admins.get(0).getEmail();
-                    log.info("Found admin email from database: {}", email);
-                    return email;
-                } else {
-                    log.error("No admin users found in database. Reports cannot be sent.");
-                    return null;
-                }
-            }
-        } catch (Exception e) {
-            log.error("Error retrieving admin email from database: {}", e.getMessage(), e);
-            return null;
-        }
-    }
 
     private void sendReportEmail(String fileName, byte[] bytes, String recipientEmail) throws Exception {
         log.info("=== Preparing to send progress analytics report email ===");

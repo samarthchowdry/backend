@@ -1,15 +1,14 @@
 package com.studentdetails.details.Service;
 
 import com.studentdetails.details.Domain.DailyReportLog;
-import com.studentdetails.details.Domain.LoginInfo;
 import com.studentdetails.details.Domain.ReportScheduleConfig;
-import com.studentdetails.details.Domain.UserRole;
 import com.studentdetails.details.DTO.StudentProgressReportDTO;
 import com.studentdetails.details.DTO.StudentProgressReportResponseDTO;
 import com.studentdetails.details.Repository.DailyReportLogRepository;
 import com.studentdetails.details.Repository.LoginInfoRepository;
 import com.studentdetails.details.Repository.ReportScheduleConfigRepository;
 import com.studentdetails.details.Service.NotificationService;
+import com.studentdetails.details.Utility.CsvUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.Cell;
@@ -258,7 +257,7 @@ public class DailyStudentReportScheduler {
             log.info("Excel workbook created, size: {} bytes", out.size());
 
             // Get admin email from database (most recently logged in admin)
-            String recipientEmail = getAdminEmail();
+            String recipientEmail = CsvUtil.getAdminEmail(loginInfoRepository);
             if (recipientEmail == null || recipientEmail.isBlank()) {
                 log.warn("No admin user found in database. Using fallback admin email: {}", fallbackAdminEmail);
                 recipientEmail = fallbackAdminEmail;
@@ -326,10 +325,8 @@ public class DailyStudentReportScheduler {
                 int col = 0;
                 row.createCell(col++).setCellValue(
                         student.getStudentId() != null ? student.getStudentId() : 0L);
-                row.createCell(col++).setCellValue(
-                        student.getStudentName() != null ? student.getStudentName() : "");
-                row.createCell(col++).setCellValue(
-                        student.getBranch() != null ? student.getBranch() : "");
+                row.createCell(col++).setCellValue(CsvUtil.safeString(student.getStudentName()));
+                row.createCell(col++).setCellValue(CsvUtil.safeString(student.getBranch()));
                 row.createCell(col++).setCellValue(student.getTotalAssessments());
                 if (student.getOverallAverageScore() != null) {
                     row.createCell(col++).setCellValue(student.getOverallAverageScore());
@@ -368,35 +365,6 @@ public class DailyStudentReportScheduler {
         return new int[]{config.getReportHour(), config.getReportMinute()};
     }
 
-    /**
-     * Gets the email address of the most recently logged in admin user.
-     * If no admin is found, returns null.
-     */
-    private String getAdminEmail() {
-        try {
-            Optional<LoginInfo> admin = loginInfoRepository.findFirstByRoleOrderByLastLoginAtDesc(UserRole.ADMIN);
-            if (admin.isPresent()) {
-                String email = admin.get().getEmail();
-                log.info("Found admin email from database: {} (last login: {})", 
-                        email, admin.get().getLastLoginAt());
-                return email;
-            } else {
-                log.warn("No admin user found in database. Checking all admin users...");
-                List<LoginInfo> admins = loginInfoRepository.findByRole(UserRole.ADMIN);
-                if (!admins.isEmpty()) {
-                    String email = admins.get(0).getEmail();
-                    log.info("Found admin email from database: {}", email);
-                    return email;
-                } else {
-                    log.error("No admin users found in database. Reports cannot be sent.");
-                    return null;
-                }
-            }
-        } catch (Exception e) {
-            log.error("Error retrieving admin email from database: {}", e.getMessage(), e);
-            return null;
-        }
-    }
 
     private void sendReportEmail(String fileName, byte[] bytes, String recipientEmail) throws Exception {
         log.info("Preparing to send daily report email to: {}", recipientEmail);

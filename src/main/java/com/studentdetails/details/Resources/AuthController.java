@@ -1,9 +1,7 @@
 package com.studentdetails.details.Resources;
-
 import com.studentdetails.details.Service.AuthService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
 import java.util.Map;
 
 @RestController

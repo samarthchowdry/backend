@@ -1,14 +1,10 @@
 package com.studentdetails.details.DTO;
-
 import lombok.Getter;
 import lombok.ToString;
-
 import java.time.LocalDate;
-
 @Getter
 @ToString
 public class StudentPerformanceDTO {
-
     private Long studentId;
     private String studentName;
     private String branch;
@@ -18,7 +14,6 @@ public class StudentPerformanceDTO {
     private Double averageScore;
     private Double percentage;
     private LocalDate lastAssessedOn;
-
     public StudentPerformanceDTO(Long studentId,
                                  String studentName,
                                  String branch,
@@ -33,11 +28,9 @@ public class StudentPerformanceDTO {
         this.totalScore = totalScore == null ? 0.0 : totalScore;
         this.totalMaxScore = totalMaxScore == null ? 0.0 : totalMaxScore;
         this.lastAssessedOn = lastAssessedOn;
-
         if (this.totalAssessments > 0) {
             this.averageScore = this.totalScore / this.totalAssessments;
         }
-
         if (this.totalMaxScore > 0) {
             this.percentage = (this.totalScore / this.totalMaxScore) * 100.0;
         }

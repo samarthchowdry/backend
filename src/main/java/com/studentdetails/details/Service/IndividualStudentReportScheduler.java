@@ -4,6 +4,7 @@ import com.studentdetails.details.Domain.Student;
 import com.studentdetails.details.Domain.StudentMark;
 import com.studentdetails.details.Repository.StudentMarkRepository;
 import com.studentdetails.details.Repository.StudentRepository;
+import com.studentdetails.details.Utility.CsvUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -149,13 +150,13 @@ public class IndividualStudentReportScheduler {
         // Calculate summary statistics
         int totalAssessments = marks.size();
         double totalScore = marks.stream()
-                .mapToDouble(m -> m.getScore() != null ? m.getScore() : 0.0)
+                .mapToDouble(m -> CsvUtil.safeValue(m.getScore(), 0.0))
                 .sum();
         double totalMaxScore = marks.stream()
-                .mapToDouble(m -> m.getMaxScore() != null ? m.getMaxScore() : 0.0)
+                .mapToDouble(m -> CsvUtil.safeValue(m.getMaxScore(), 0.0))
                 .sum();
-        double averageScore = totalAssessments > 0 ? totalScore / totalAssessments : 0.0;
-        double overallPercentage = totalMaxScore > 0 ? (totalScore / totalMaxScore) * 100.0 : 0.0;
+        double averageScore = CsvUtil.calculateAverage(totalScore, totalAssessments);
+        double overallPercentage = CsvUtil.calculatePercentage(totalScore, totalMaxScore);
         
         LocalDate lastAssessedOn = marks.stream()
                 .map(StudentMark::getAssessedOn)
@@ -165,12 +166,12 @@ public class IndividualStudentReportScheduler {
 
         // Summary section
         csv.append("Student Name,Branch,Total Assessments,Average Score,Overall Percentage,Last Assessment Date\n");
-        csv.append(escapeCsvValue(student.getName() != null ? student.getName() : "")).append(",");
-        csv.append(escapeCsvValue(student.getBranch() != null ? student.getBranch() : "")).append(",");
+        csv.append(CsvUtil.escapeCsvValue(CsvUtil.safeString(student.getName()))).append(",");
+        csv.append(CsvUtil.escapeCsvValue(CsvUtil.safeString(student.getBranch()))).append(",");
         csv.append(totalAssessments).append(",");
-        csv.append(String.format("%.2f", averageScore)).append(",");
-        csv.append(String.format("%.2f", overallPercentage)).append(",");
-        csv.append(escapeCsvValue(lastAssessedOn != null ? lastAssessedOn.toString() : "")).append("\n");
+        csv.append(CsvUtil.formatDouble(averageScore)).append(",");
+        csv.append(CsvUtil.formatDouble(overallPercentage)).append(",");
+        csv.append(CsvUtil.escapeCsvValue(lastAssessedOn != null ? lastAssessedOn.toString() : "")).append("\n");
         csv.append("\n"); // Empty row
 
         // Courses section
@@ -179,7 +180,7 @@ public class IndividualStudentReportScheduler {
             int courseIndex = 1;
             for (var course : student.getCourses()) {
                 csv.append(courseIndex).append(",");
-                csv.append(escapeCsvValue(course.getName() != null ? course.getName() : "")).append("\n");
+                csv.append(CsvUtil.escapeCsvValue(CsvUtil.safeString(course.getName()))).append("\n");
                 courseIndex++;
             }
             csv.append("\n"); // Empty row
@@ -192,11 +193,11 @@ public class IndividualStudentReportScheduler {
         // Aggregate marks by subject
         Map<String, SubjectSummary> subjectMap = new HashMap<>();
         for (StudentMark mark : marks) {
-            String subject = mark.getSubject() != null ? mark.getSubject() : "Unknown";
+            String subject = CsvUtil.safeValue(mark.getSubject(), "Unknown");
             SubjectSummary summary = subjectMap.computeIfAbsent(subject, k -> new SubjectSummary(subject));
             summary.assessments++;
-            summary.totalScore += (mark.getScore() != null ? mark.getScore() : 0.0);
-            summary.totalMaxScore += (mark.getMaxScore() != null ? mark.getMaxScore() : 0.0);
+            summary.totalScore += CsvUtil.safeValue(mark.getScore(), 0.0);
+            summary.totalMaxScore += CsvUtil.safeValue(mark.getMaxScore(), 0.0);
         }
 
         // Sort by percentage (descending)
@@ -205,11 +206,11 @@ public class IndividualStudentReportScheduler {
 
         // Write subject rows
         for (SubjectSummary summary : subjectSummaries) {
-            csv.append(escapeCsvValue(summary.subject)).append(",");
+            csv.append(CsvUtil.escapeCsvValue(summary.subject)).append(",");
             csv.append(summary.assessments).append(",");
-            csv.append(String.format("%.2f", summary.totalScore)).append(",");
-            csv.append(String.format("%.2f", summary.totalMaxScore)).append(",");
-            csv.append(String.format("%.2f", summary.getPercentage())).append("\n");
+            csv.append(CsvUtil.formatDouble(summary.totalScore)).append(",");
+            csv.append(CsvUtil.formatDouble(summary.totalMaxScore)).append(",");
+            csv.append(CsvUtil.formatDouble(summary.getPercentage())).append("\n");
         }
 
         return csv.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
@@ -226,7 +227,7 @@ public class IndividualStudentReportScheduler {
         }
 
         double getPercentage() {
-            return totalMaxScore > 0 ? (totalScore / totalMaxScore) * 100.0 : 0.0;
+            return CsvUtil.calculatePercentage(totalScore, totalMaxScore);
         }
     }
 
@@ -275,15 +276,5 @@ public class IndividualStudentReportScheduler {
         log.info("✓ Email sent successfully to: {}", student.getEmail());
     }
 
-    private String escapeCsvValue(String value) {
-        if (value == null) {
-            return "";
-        }
-        // If value contains comma, quote, or newline, wrap in quotes and escape quotes
-        if (value.contains(",") || value.contains("\"") || value.contains("\n")) {
-            return "\"" + value.replace("\"", "\"\"") + "\"";
-        }
-        return value;
-    }
 }
 
