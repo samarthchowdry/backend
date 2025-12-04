@@ -30,5 +30,21 @@ spring:
           timeout: 5000
           writetimeout: 5000
 
+  task:
+    scheduling:
+      time-zone: Asia/Kolkata
+
+  # Thymeleaf configuration for email templates
+  thymeleaf:
+    prefix: classpath:/templates/
+    suffix: .html
+    mode: HTML
+    encoding: UTF-8
+    cache: false  # Set to true in production
+
 google:
    clientId: 1084932926067-r73ufmbchmbskh7e1agvplfh82ic68f5.apps.googleusercontent.com
+
+app:
+  report:
+    admin-email: ${ADMIN_EMAIL:samarthchowdry3@gmail.com}

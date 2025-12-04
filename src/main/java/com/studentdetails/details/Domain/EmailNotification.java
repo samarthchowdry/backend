@@ -26,12 +26,27 @@ public class EmailNotification {
     @Column(name = "subject", nullable = false)
     private String subject;
 
+    @Column(name = "body", columnDefinition = "TEXT")
+    private String body;
+
+    @Column(name = "is_html", nullable = false)
+    private Boolean isHtml = false;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
     private EmailStatus status;
 
     @Column(name = "sent_time")
     private LocalDateTime sentTime;
+
+    @Column(name = "retry_count")
+    private Integer retryCount = 0;
+
+    @Column(name = "last_attempt_time")
+    private LocalDateTime lastAttemptTime;
+
+    @Column(name = "last_error", columnDefinition = "TEXT")
+    private String lastError;
 
     public enum EmailStatus {
         PENDING,

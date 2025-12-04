@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title th:text="${subject}">Email Notification</title>
+    <style>
+        body {
+            font-family: Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f2f2f2;
+        }
+        .container {
+            font-size: 16px;
+            width: 70%;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            border-bottom: 2px solid #4CAF50;
+            padding-bottom: 20px;
+            margin-bottom: 20px;
+        }
+        .brand {
+            font-size: 1.8em;
+            color: #4CAF50 !important;
+            text-decoration: none;
+            font-weight: 800;
+            display: inline-block;
+        }
+        .content {
+            line-height: 1.6;
+            color: #333;
+        }
+        h3 {
+            color: #4CAF50;
+            margin-top: 0;
+        }
+        p {
+            margin-bottom: 15px;
+            color: #555;
+        }
+        .message-content {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-left: 4px solid #4CAF50;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .student-info {
+            background-color: #e8f5e9;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .footer {
+            color: #aaa;
+            font-size: 0.9em;
+            font-weight: 300;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <a href="#" class="brand">Student Management System</a>
+        </div>
+        <!-- Conditional greeting: personalized for individual emails, generic for broadcast -->
+        <h3 th:if="${name != null}">Hello, <span th:text="${name}">Student</span>!</h3>
+        <h3 th:if="${name == null}">Hello!</h3>
+        <div class="content">
+            <!-- Student info section: only shown for individual emails -->
+            <div class="student-info" th:if="${studentId != null}">
+                <p style="margin: 5px 0;"><strong>Student ID:</strong> <span th:text="${studentId}"></span></p>
+                <p style="margin: 5px 0;" th:if="${branch != null}"><strong>Branch:</strong> <span th:text="${branch}"></span></p>
+            </div>
+            <p>We hope this message finds you well.</p>
+            <div class="message-content">
+                <p th:text="${message}" style="margin: 0; white-space: pre-wrap;"></p>
+            </div>
+            <p>If you have any questions or concerns, please don't hesitate to contact us.</p>
+        </div>
+        <div class="footer">
+            <p>Thank you for your attention.</p>
+            <p><strong>Student Management System Team</strong></p>
+        </div>
+    </div>
+</body>
+</html>
+

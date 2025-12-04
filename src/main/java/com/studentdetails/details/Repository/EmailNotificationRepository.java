@@ -9,5 +9,7 @@ import java.util.List;
 @Repository
 public interface EmailNotificationRepository extends JpaRepository<EmailNotification, Long> {
     List<EmailNotification> findAllByOrderBySentTimeDesc();
+
+    List<EmailNotification> findTop100ByStatusInOrderByIdAsc(List<EmailNotification.EmailStatus> statuses);
 }
 
