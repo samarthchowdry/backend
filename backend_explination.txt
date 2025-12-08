@@ -1,0 +1,782 @@
+
+                    Student Management Application
+
+Project Overview
+
+
+This is the backend module of a full-stack Student Management System built with:
+ Spring Boot 3.5.6 (Java 25)
+ MySQL 8+ database
+ JWT token-based authentication
+ Spring Security with role-based access control (RBAC)
+ RESTful API architecture
+
+The backend provides REST APIs for managing students, courses, marks, reports,
+notifications, and email communications with scheduled task support.
+
+
+
+Technology Used
+Spring Boot 3.5.6
+Java 25
+MySQL 8+ (database)
+Spring Data JPA (ORM)
+Spring Security (authentication & authorization)
+JWT (JSON Web Tokens) - jjwt 0.12.5
+Apache POI 5.2.5 (Excel report generation)
+Apache Commons CSV 1.10.0 (CSV parsing)
+Spring Mail (email functionality)
+Thymeleaf (email templates)
+Lombok 1.18.42 (code generation)
+MapStruct 1.5.5.Final (DTO mapping)
+Google API Client 2.6.0 (Google OAuth  2.O)
+
+
+Main Application Class
+
+
+DetailsApplication.java
+-----------------------
+Main Spring Boot application entry point
+Located at: src/main/java/com/studentdetails/details/DetailsApplication.java
+Annotations:
+  @SpringBootApplication - Main Spring Boot annotation
+  @EnableScheduling - Enables scheduled task execution
+  @EnableAsync - Enables asynchronous processing
+
+Domain Entities (Domain/)
+1. Student.java
+   Entity representing a student in the system
+   Fields: id, name, dob, email, address, branch, password
+   Relationships:
+     Many-to-Many with Course (via student_courses join table)
+     One-to-Many with StudentMark
+   Table: students
+
+2. Course.java
+   Entity representing a course
+   Fields: id, name, code (unique), description, credits
+   Relationships:
+     Many-to-Many with Student
+     Table: courses
+
+3. StudentMark.java
+   Entity representing student marks
+   Fields: id, student, course, marks, grade, semester, examType
+   Relationships:
+     Many-to-One with Student
+     Many-to-One with Course
+   Table: student_marks
+
+4. LoginInfo.java
+   Entity for user authentication information
+   Fields: id, googleSub (unique), email (unique), fullName, pictureUrl,
+            lastLoginAt, role, projectAdmin, password
+   Supports roles: ADMIN, TEACHER, STUDENT
+   Table: login_info
+
+5. UserRole.java
+   Enumeration for user roles
+   Values: ADMIN, TEACHER, STUDENT
+
+6. Notification.java
+   Entity for in-app notifications
+   Fields: id, title, message, status, createdAt
+   Table: notifications
+
+7. EmailNotification.java
+   Entity for email notification records
+   Fields: id, recipientEmail, subject, body, status, sentAt, errorMessage
+   Table: email_notifications
+
+8. BroadcastEmailTemplate.java
+   Entity for broadcast email templates
+   Fields: id, templateName, subject, body
+   Table: broadcast_email_templates
+
+9. ReportScheduleConfig.java
+   Entity for scheduled report configuration
+   Fields: id, reportHour, reportMinute
+   Default: 10:30 AM
+   Table: report_schedule_config
+
+10. DailyReportLog.java
+  Entity for daily report generation logs
+  Fields: id, reportDate, status, errorMessage
+  Table: daily_report_log
+
+11. GradeScale.java
+  Entity for grade scale configuration
+  Fields: id, grade, minMarks, maxMarks
+  Table: grade_scale
+
+12. Admin.java
+  Entity for admin users
+  Table: admins
+
+13. Teacher.java
+Entity for teacher users
+Table: teachers
+
+Reposotiories (Repository/)
+All repositories extend JpaRepository and provide data access methods:
+
+StudentRepository
+  Custom query methods for student filtering
+  Find by email, name, branch, etc.
+
+CourseRepository
+  Standard CRUD operations
+  Find by code, name
+
+StudentMarkRepository
+  Find marks by student, course, semester
+
+LoginInfoRepository
+  Find by email, googleSub
+  User authentication queries
+
+NotificationRepository
+  Notification status queries
+
+EmailNotificationRepository
+  Email status tracking
+  Find by recipient, status
+
+AdminRepository
+  Admin user queries
+
+TeacherRepository
+  Teacher user queries
+
+ReportScheduleConfigRepository
+  Report schedule configuration
+
+DailyReportLogRepository
+  Report generation logs
+
+BroadcastEmailTemplateRepository
+  Email template management
+
+GradeScaleRepository
+  Grade scale configuration
+
+Services (Service/)
+1. StudentService (ServiceImpl/StudentServiceImpl.java)
+   Responsibilities:
+   CRUD operations for students
+   Student filtering and search (by name, email, branch, dob, id)
+   Bulk upload from CSV file
+   Bulk update from CSV file
+   Marks management (add, update, retrieve)
+   Marks card generation
+   Student performance analytics
+   Password synchronization
+   Login fix operations
+
+2. CourseService (ServiceImpl/CourseServiceImpl.java)
+   Responsibilities:
+   CRUD operations for courses
+   Course filtering (by name, code)
+   Course count retrieval
+
+3. AuthService (ServiceImpl/AuthServiceImpl.java)
+   Responsibilities:
+   Google OAuth 2.0  authentication
+   JWT token generation
+   User registration and login
+   Admin user creation (ADMIN role only)
+   Password hashing (BCrypt)
+   User role management
+
+4. EmailService (ServiceImpl/EmailServiceImpl.java)
+   Responsibilities:
+   Send individual emails to students
+   Send broadcast emails to multiple recipients
+   Email template processing (Thymeleaf)
+   Email queue management
+   Email status tracking
+   Error handling and retry logic
+
+5. NotificationService (ServiceImpl/NotificationServiceImpl.java)
+   Responsibilities:
+   Create and manage in-app notifications
+   Notification status updates
+   Notification retrieval
+
+6. ReportService (ServiceImpl/ReportServiceImpl.java)
+   Responsibilities:
+   Generate student reports
+   Excel report generation (Apache POI)
+   Performance analytics reports
+   Progress reports
+   Report scheduling
+
+7. AdminCommunicationService (ServiceImpl/AdminCommunicationServiceImpl.java)
+   Responsibilities:
+   Admin-to-teacher communication
+   Email broadcasting to teachers
+   Communication management
+
+
+Scheduled Services
+1. DailyStudentReportScheduler
+   Scheduled daily student report generation
+   Runs at configured time (default: 10:30 AM)
+   Generates reports for all students
+   Sends reports via email
+
+2. IndividualStudentReportScheduler
+   Individual student report generation
+   On-demand report generation
+   Email delivery
+
+3. ProgressAnalyticsReportScheduler
+   Scheduled progress analytics report generation
+   Performance metrics calculation
+   Analytics report generation
+
+4. DailyBroadcastEmailScheduler
+   Scheduled broadcast email sending
+   Template-based emails
+   Bulk email processing
+
+5. EmailScheduler
+   Email queue processing
+   Retry failed emails
+   Email status updates
+
+
+Rest Controllers (Resources/)
+
+
+1. StudentController
+   Base Path: /api/students, /students
+   Endpoints:
+   GET /api/students
+     Get all students with optional filters
+     Query params: id, name, dob, email, address, branch
+     Returns: List<StudentDTO>
+   
+   GET /api/students/{id}
+     Get student by ID
+     Returns: StudentDTO
+   
+   POST /api/students
+      Create new student
+      Body: StudentDTO
+      Returns: StudentDTO
+   
+   PUT /api/students/{id}
+     Update student
+     Body: StudentDTO
+     Returns: StudentDTO
+   
+   DELETE /api/students/{id}
+     Delete student
+     Returns: 204 No Content
+   
+   GET /api/students/count
+     Get total student count
+     Returns: Long
+   
+   GET /api/students/performance
+     Get student performance data
+     Returns: List<StudentPerformanceDTO>
+   
+   POST /api/students/bulk-upload
+     Bulk upload students from CSV
+     Body: MultipartFile (CSV)
+     Returns: Map with upload results
+   
+   POST /api/students/bulk-update
+     Bulk update students from CSV
+     Body: MultipartFile (CSV)
+     Returns: Map with update results
+   
+   POST /api/students/{studentId}/marks
+      Add marks for student
+      Body: StudentMarkDTO
+      Returns: StudentMarkDTO
+   
+   PUT /api/students/{studentId}/marks/{markId}
+     Update marks
+     Body: StudentMarkDTO
+     Returns: StudentMarkDTO
+   
+   GET /api/students/{studentId}/marks
+     Get all marks for student
+     Returns: List<StudentMarkDTO>
+   
+   GET /api/students/{studentId}/marks-card
+     Get marks card for student
+     Returns: MarksCardDTO
+   
+   POST /api/students/fix-login/{email}
+     Fix student login issues
+     Returns: Success message
+   
+   POST /api/students/sync-passwords
+     Synchronize student passwords
+     Returns: Sync results
+
+2. CourseController
+   Base Path: /api/courses, /courses
+   
+   Endpoints:
+   GET /api/courses
+    Get all courses with optional filters
+    Query params: name, code
+    Returns: List<CourseDTO>
+   
+   GET /api/courses/{id}
+      Get course by ID
+      Returns: CourseDTO
+   
+   GET /api/courses/count
+      Get total course count
+      Returns: Long
+
+3. AuthController
+   Base Path: /api/auth
+   Endpoints:
+   POST /api/auth/login
+     Username/password login
+     Body: {email, password}
+     Returns: JwtAuthResponse
+   
+   POST /api/auth/google
+      Google OAuth 2.0 login
+      Body: {idToken}
+      Returns: JwtAuthResponse
+   
+   POST /api/auth/google/complete
+     Complete Google OAuth flow
+     Body: {idToken, email, name, picture}
+     Returns: JwtAuthResponse
+   
+   POST /api/auth/admin/users
+     Create admin/teacher user (ADMIN only)
+     Body: {email, password, role, fullName}
+     Returns: User creation response
+     Security: @PreAuthorize("hasRole('ADMIN')")
+
+4. AdminController
+   Base Path: /api/admin
+   Endpoints:
+   GET /api/admin/email-status
+     Get email queue status
+     Returns: Email status information
+   
+   DELETE /api/admin/email-status
+     Clear email status
+     Returns: Success message
+   
+   POST /api/admin/email-broadcast
+     Send broadcast email
+     Body: BroadcastEmailRequest
+     Returns: BroadcastEmailResponse
+   
+   POST /api/admin/email-student
+     Send email to specific student
+     Body: IndividualEmailRequest
+     Returns: IndividualEmailResponse
+   
+   DELETE /api/admin/teachers/{email}
+     Delete teacher by email
+     Returns: Success message
+
+
+Security (Security/)
+1. SecurityConfiguration.java
+   Main Spring Security configuration class
+   Configures:
+     Role-based access control (RBAC)
+     JWT authentication filter
+     CORS configuration
+     CSRF protection (configurable)
+     Public and protected endpoints
+     Password encoder (BCrypt)
+     Session management (stateless)
+
+2. JwtTokenProvider.java
+   JWT token generation and validation
+   Methods:
+     generateToken(email, role, userId) - Generate JWT token
+     validateToken(token) - Validate token
+     getEmailFromToken(token) - Extract email
+     getRoleFromToken(token) - Extract role
+     getUserIdFromToken(token) - Extract user ID
+     Token expiration: 24 hours (configurable)
+     Algorithm: HS512
+
+3. JwtAuthenticationFilter.java
+    Filters incoming HTTP requests
+    Extracts JWT tokens from:
+    Authorization: Bearer <token> (standard)
+    X-Auth-Token: <token> (alternative)
+  Validates tokens and sets Spring Security authentication context
+  Logs authentication attempts for security monitoring
+  Skips authentication for public endpoints
+
+4. CustomUserDetailsService.java
+   Implements UserDetailsService
+   Loads user details from database (LoginInfo)
+   Used by Spring Security for authentication
+   Converts LoginInfo to Spring Security UserDetails
+
+5. SecurityUtils.java
+   Utility class for accessing current user information
+   Methods:
+     getCurrentUserEmail() - Get current user email
+     getCurrentUserRole() - Get current user role
+     isAdmin() - Check if user is admin
+     * hasRole(UserRole) - Check if user has specific role
+   - Uses Spring Security SecurityContext
+
+Configuration (application.yml)
+Database Configuration:
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/studentdb2
+    username: root
+    password: [configured]
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+JPA Configuration:
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: update  # Auto-create/update tables
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+
+Email Configuration:
+spring:
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: [configured]
+    password: [configured]
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+JWT Configuration:
+app:
+  jwt:
+    secret: [configured - min 64 characters]
+    expiration: 86400000  # 24 hours in milliseconds
+    issuer: student-management-system
+
+Security Configuration:
+app:
+  security:
+    allowed-origins: http://localhost:4200,http://127.0.0.1:4200
+    enable-csrf: false
+    permit-all-paths: /api/auth/**,/api/public/**
+
+Google OAuth 2.O:
+google:
+  clientId: [configured Google Client ID]
+
+Report Configuration:
+app:
+  report:
+    admin-email: [configured admin email]
+
+Scheduling:
+spring:
+  task:
+    scheduling:
+      time-zone: Asia/Kolkata
+
+Thymeleaf (Email Templates):
+spring:
+  thymeleaf:
+    prefix: classpath:/templates/
+    suffix: .html
+    mode: HTML
+    encoding: UTF-8
+    cache: false
+
+
+Envinronment Variables
+Required environment variables (can override application.yml):
+DB_URL: Database connection URL
+DB_USERNAME: Database username
+DB_PASSWORD: Database password
+MAIL_USERNAME: Email username (Gmail)
+MAIL_PASSWORD: Email password (Gmail App Password)
+JWT_SECRET: JWT secret key (minimum 64 characters)
+JWT_EXPIRATION: Token expiration in milliseconds
+JWT_ISSUER: JWT issuer name
+ALLOWED_ORIGINS: CORS allowed origins (comma-separated)
+ENABLE_CSRF: Enable/disable CSRF protection (true/false)
+ADMIN_EMAIL: Admin email for reports
+
+
+UTILITIES
+CsvUtil.java
+
+CSV file parsing utilities
+Methods for parsing student data from CSV
+Handles CSV format validation
+Error handling for malformed CSV files
+
+
+Exceptions
+Custom exception classes:
+1. StudentNotFoundException
+   Thrown when student is not found
+   HTTP Status: 404 Not Found
+
+2. CourseNotFoundException
+   Thrown when course is not found
+   HTTP Status: 404 Not Found
+
+3. AuthNotFoundException
+   Thrown when authentication fails
+   HTTP Status: 401 Unauthorized
+
+4. UnauthorizedException
+   Thrown when user lacks required permissions
+   HTTP Status: 403 Forbidden
+
+DTOs (Data Transfer Objects)
+DTOs are used for API request/response:
+StudentDTO - Student data transfer
+CourseDTO - Course data transfer
+StudentMarkDTO - Student marks data transfer
+MarksCardDTO - Marks card data transfer
+StudentPerformanceDTO - Performance analytics
+StudentProgressReportDTO - Progress report data
+StudentCourseSummaryDTO - Course summary
+StudentSubjectAnalyticsDTO - Subject analytics
+JwtAuthResponse - Authentication response
+BroadcastEmailRequest/Response - Broadcast email data
+IndividualEmailRequest/Response - Individual email data
+
+
+Mappers (MapStruct)
+MapStruct is used for entity-to-DTO mapping:
+StudentMapper - Maps Student <-> StudentDTO
+CourseMapper - Maps Course <-> CourseDTO
+StudentMarkMapper - Maps StudentMark <-> StudentMarkDTO
+EntityMapper - Base mapper interface
+
+
+Database Schema
+Main Tables:
+1. students
+   id (BIGINT, Primary Key)
+   name (VARCHAR, NOT NULL)
+   dob (DATE, NOT NULL)
+   email (VARCHAR, NOT NULL)
+   address (VARCHAR, NOT NULL)
+   branch (VARCHAR, NOT NULL)
+   password (VARCHAR, 255)
+
+2. courses
+   id (BIGINT, Primary Key, Auto Increment)
+   name (VARCHAR, NOT NULL)
+   code (VARCHAR(32), NOT NULL, UNIQUE)
+   description (VARCHAR(512))
+   credits (INTEGER)
+
+3. student_courses (Join Table)
+   student_id (BIGINT, Foreign Key -> students.id)
+   course_id (BIGINT, Foreign Key -> courses.id)
+
+4. student_marks
+   id (BIGINT, Primary Key, Auto Increment)
+   student_id (BIGINT, Foreign Key -> students.id)
+   course_id (BIGINT, Foreign Key -> courses.id)
+   marks (DECIMAL)
+   grade (VARCHAR)
+   semester (VARCHAR)
+   exam_type (VARCHAR)
+
+5. login_info
+   id (BIGINT, Primary Key, Auto Increment)
+   google_sub (VARCHAR(64), UNIQUE, NOT NULL)
+   email (VARCHAR, UNIQUE, NOT NULL)
+   full_name (VARCHAR)
+   picture_url (VARCHAR(1024))
+   last_login_at (DATETIME, NOT NULL)
+   role (VARCHAR(32), NOT NULL)
+   is_project_admin (BOOLEAN, NOT NULL)
+   password (VARCHAR)
+
+6. notifications
+   id (BIGINT, Primary Key, Auto Increment)
+   title (VARCHAR, NOT NULL)
+   message (VARCHAR(1000), NOT NULL)
+   status (VARCHAR, NOT NULL)
+   created_at (DATETIME, NOT NULL)
+
+7. email_notifications
+   id (BIGINT, Primary Key, Auto Increment)
+   recipient_email (VARCHAR, NOT NULL)
+   subject (VARCHAR, NOT NULL)
+   body (TEXT, NOT NULL)
+   status (VARCHAR, NOT NULL)
+   sent_at (DATETIME)
+   error_message (TEXT)
+
+8. report_schedule_config
+   id (BIGINT, Primary Key, Auto Increment)
+   report_hour (INT, NOT NULL, Default: 10)
+   report_minute (INT, NOT NULL, Default: 30)
+
+9. daily_report_log
+   id (BIGINT, Primary Key, Auto Increment)
+   report_date (DATE, NOT NULL)
+   status (VARCHAR, NOT NULL)
+   error_message (TEXT)
+
+10. broadcast_email_templates
+    id (BIGINT, Primary Key, Auto Increment)
+    template_name (VARCHAR, NOT NULL)
+    subject (VARCHAR, NOT NULL)
+    body (TEXT, NOT NULL)
+
+11. grade_scale
+    id (BIGINT, Primary Key, Auto Increment)
+    grade (VARCHAR, NOT NULL)
+    min_marks (DECIMAL, NOT NULL)
+    - max_marks (DECIMAL, NOT NULL)
+
+
+Application Building
+
+
+Build:
+
+Maven project (pom.xml)
+Build command: mvn clean install
+Creates JAR file in target/ directory
+
+Run:
+Development: mvn spring-boot:run
+Production: java -jar target/details-0.0.1-SNAPSHOT.jar
+Port: 8080 (default)
+
+Dependencies:
+Managed by Maven (pom.xml)
+Spring Boot parent manages versions
+Custom versions for: MySQL Connector, Apache POI, Lombok, MapStruct, JWT
+
+Api Endpoints Summary
+Authenication:
+POST /api/auth/login - Username/password login
+POST /api/auth/google - Google OAuth login
+POST /api/auth/google/complete - Complete Google OAuth
+POST /api/auth/admin/users - Create user (ADMIN only)
+
+Students:
+GET /api/students - Get all students (with filters)
+GET /api/students/{id} - Get student by ID
+POST /api/students - Create student
+PUT /api/students/{id} - Update student
+DELETE /api/students/{id} - Delete student
+GET /api/students/count - Get student count
+GET /api/students/performance - Get performance data
+POST /api/students/bulk-upload - Bulk upload CSV
+POST /api/students/bulk-update - Bulk update CSV
+POST /api/students/{studentId}/marks - Add marks
+PUT /api/students/{studentId}/marks/{markId} - Update marks
+GET /api/students/{studentId}/marks - Get marks
+GET /api/students/{studentId}/marks-card - Get marks card
+POST /api/students/fix-login/{email} - Fix student login
+POST /api/students/sync-passwords - Sync passwords
+
+Courses:
+GET /api/courses - Get all courses (with filters)
+GET /api/courses/{id} - Get course by ID
+GET /api/courses/count - Get course count
+
+Admin:
+GET /api/admin/email-status - Get email status
+DELETE /api/admin/email-status - Clear email status
+POST /api/admin/email-broadcast - Send broadcast email
+POST /api/admin/email-student - Send email to student
+DELETE /api/admin/teachers/{email} - Delete teacher
+
+
+Security Measures
+1. JWT tokens with expiration (24 hours)
+2. BCrypt password hashing (strength 10)
+3. Role-based access control (RBAC)
+4. CORS configuration (restricted origins)
+5. Input validation (@Valid annotations)
+6. SQL injection prevention (JPA parameterized queries)
+7. XSS protection (Spring Security defaults)
+8. Secure token storage (client-side responsibility)
+9. HTTPS recommended for production
+10. Strong JWT secrets (minimum 64 characters)
+11. Method-level security (@PreAuthorize)
+12. Stateless session management
+
+
+Dependencies (pom.xml)
+
+
+Core Dependencies:
+
+spring-boot-starter-web (REST API)
+spring-boot-starter-data-jpa (JPA/Hibernate)
+spring-boot-starter-security (Security)
+spring-boot-starter-validation (Validation)
+spring-boot-starter-mail (Email)
+spring-boot-starter-thymeleaf (Email templates)
+
+Database:
+mysql-connector-j 8.1.0
+
+Utilities:
+poi-ooxml 5.2.5 (Excel)
+commons-csv 1.10.0 (CSV parsing)
+lombok 1.18.42 (Code generation)
+mapstruct 1.5.5.Final (DTO mapping)
+mapstruct-processor 1.5.5.Final
+lombok-mapstruct-binding 0.2.0
+
+Security:
+jjwt-api 0.12.5
+jjwt-impl 0.12.5
+jjwt-jackson 0.12.5
+
+OAuth:
+google-api-client 2.6.0
+google-http-client-jackson2 1.43.3
+
+Project Structure
+details/
+ src/
+ main/
+java/com/studentdetails/details/
+Configuration/         # CORS configuration
+Domain/                # JPA entities
+DTO/                   # Data Transfer Objects
+Exception/             # Custom exceptions
+Mapper/                # MapStruct mappers
+Repository/            # JPA repositories
+Resources/             # REST controllers
+Security/              # Security configuration
+Service/               # Business logic
+ServiceImpl/           # Service implementations
+Utility/               # Utility classes
+resources/
+application.yml        # Configuration
+templates/email/       # Email templates
+test/                  # Test files
+pom.xml                # Maven dependencies
+
+
+
