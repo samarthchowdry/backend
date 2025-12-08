@@ -1,10 +1,16 @@
 package com.studentdetails.details.Domain;
+
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+
 import java.time.LocalDateTime;
+
+/**
+ * Entity representing in-app notifications.
+ */
 @Getter
 @Setter
 @AllArgsConstructor

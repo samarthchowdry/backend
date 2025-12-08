@@ -1,4 +1,5 @@
 package com.studentdetails.details.Service.ServiceImpl;
+
 import com.studentdetails.details.DTO.CourseDTO;
 import com.studentdetails.details.Domain.Course;
 import com.studentdetails.details.Domain.Student;
@@ -11,6 +12,8 @@ import com.studentdetails.details.Repository.CourseRepository;
 import com.studentdetails.details.Repository.StudentRepository;
 import com.studentdetails.details.Service.CourseService;
 import lombok.AllArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,20 +22,29 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+/**
+ * Service implementation for course-related operations.
+ * This class is used by Spring Framework for dependency injection.
+ */
 @AllArgsConstructor
 @Service
 @Transactional
+@SuppressWarnings("unused") // Suppress unused warning - class is used by Spring Framework
 public class CourseServiceImpl implements CourseService {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(CourseServiceImpl.class);
 
     private final CourseRepository courseRepository;
     private final StudentRepository studentRepository;
     private final CourseMapper courseMapper;
 
-    // --- Existing methods unchanged ---
     @Override
     @Transactional(readOnly = true)
     public List<CourseDTO> getAllCourses() {
-        return courseMapper.toDto(courseRepository.findAll());
+        List<Course> courses = courseRepository.findAll();
+        return courses.stream()
+                .map(courseMapper::toDto)
+                .toList();
     }
 
     @Override
@@ -100,50 +112,6 @@ public class CourseServiceImpl implements CourseService {
     }
 
     @Override
-    @Transactional(readOnly = true)
-    public long countCourses() {
-        return courseRepository.count();
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public List<CourseDTO> getFilteredCourses(String name, String code) {
-        boolean hasName = name != null && !name.isBlank();
-        boolean hasCode = code != null && !code.isBlank();
-
-        List<Course> courses = (hasName || hasCode)
-                ? courseRepository.findByFilters(hasName ? name : null, hasCode ? code : null)
-                : courseRepository.findAll();
-
-        return courseMapper.toDto(courses);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public List<CourseDTO> getCoursesByStudent(Long studentId) {
-        Student student = studentRepository.findByIdWithCourses(studentId)
-                .orElseThrow(() -> new StudentNotFoundException(studentId));
-        java.util.Map<String, Course> unique = new java.util.LinkedHashMap<>();
-        for (Course course : student.getCourses()) {
-            if (course == null) {
-                continue;
-            }
-            String key;
-            if (course.getId() != null) {
-                key = "id:" + course.getId();
-            } else {
-                String name = course.getName() != null ? course.getName().trim().toLowerCase() : "";
-                String code = course.getCode() != null ? course.getCode().trim().toLowerCase() : "";
-                key = "name:" + name + "|code:" + code;
-            }
-            unique.putIfAbsent(key, course);
-        }
-        return unique.values().stream()
-                .map(courseMapper::toDto)
-                .toList();
-    }
-
-    @Override
     public CourseDTO addStudentToCourse(Long courseId, Long studentId) {
         Course course = courseRepository.findById(courseId)
                 .orElseThrow(() -> new CourseNotFoundException(courseId));
@@ -177,28 +145,63 @@ public class CourseServiceImpl implements CourseService {
         return courseMapper.toDto(saved);
     }
 
-    // --- Simplified auth-based methods ---
-
+    /**
+     * Creates a course with admin authentication check.
+     *
+     * @param courseDTO the course data
+     * @param roleHeader the role header for authentication
+     * @return the created course DTO
+     */
     public CourseDTO createCourseWithAuth(CourseDTO courseDTO, String roleHeader) {
         enforceAdminRole(roleHeader);
         return createCourse(courseDTO);
     }
 
+    /**
+     * Updates a course with admin authentication check.
+     *
+     * @param id the course ID
+     * @param courseDTO the course data
+     * @param roleHeader the role header for authentication
+     * @return the updated course DTO
+     */
     public CourseDTO updateCourseWithAuth(Long id, CourseDTO courseDTO, String roleHeader) {
         enforceAdminRole(roleHeader);
         return updateCourse(id, courseDTO);
     }
 
+    /**
+     * Deletes a course with admin authentication check.
+     *
+     * @param id the course ID
+     * @param roleHeader the role header for authentication
+     */
     public void deleteCourseWithAuth(Long id, String roleHeader) {
         enforceAdminRole(roleHeader);
         deleteCourse(id);
     }
 
+    /**
+     * Adds a student to a course with admin authentication check.
+     *
+     * @param courseId the course ID
+     * @param studentId the student ID
+     * @param roleHeader the role header for authentication
+     * @return the updated course DTO
+     */
     public CourseDTO addStudentToCourseWithAuth(Long courseId, Long studentId, String roleHeader) {
         enforceAdminRole(roleHeader);
         return addStudentToCourse(courseId, studentId);
     }
 
+    /**
+     * Removes a student from a course with admin authentication check.
+     *
+     * @param courseId the course ID
+     * @param studentId the student ID
+     * @param roleHeader the role header for authentication
+     * @return the updated course DTO
+     */
     public CourseDTO removeStudentFromCourseWithAuth(Long courseId, Long studentId, String roleHeader) {
         enforceAdminRole(roleHeader);
         return removeStudentFromCourse(courseId, studentId);
@@ -225,23 +228,42 @@ public class CourseServiceImpl implements CourseService {
     }
 
     private void syncStudents(Course course, List<Student> students) {
+        if (students == null || students.isEmpty()) {
+            return;
+        }
+        // Batch update: collect all students that need updating, then save once
+        List<Student> toUpdate = new ArrayList<>();
         for (Student student : students) {
             boolean alreadyLinked = student.getCourses().stream()
                     .anyMatch(existing -> existing.getId().equals(course.getId()));
             if (!alreadyLinked) {
                 student.getCourses().add(course);
-                studentRepository.save(student);
+                toUpdate.add(student);
             }
+        }
+        // Batch save all students at once
+        if (!toUpdate.isEmpty()) {
+            studentRepository.saveAll(toUpdate);
         }
     }
 
     private void detachAll(Course course) {
         List<Student> existingStudents = new ArrayList<>(course.getStudents());
+        if (existingStudents.isEmpty()) {
+            course.getStudents().clear();
+            return;
+        }
+        // Batch update: collect all students that need updating, then save once
+        List<Student> toUpdate = new ArrayList<>();
         for (Student student : existingStudents) {
             boolean removed = student.getCourses().removeIf(c -> c.getId().equals(course.getId()));
             if (removed) {
-                studentRepository.save(student);
+                toUpdate.add(student);
             }
+        }
+        // Batch save all students at once
+        if (!toUpdate.isEmpty()) {
+            studentRepository.saveAll(toUpdate);
         }
         course.getStudents().clear();
     }
@@ -257,7 +279,8 @@ public class CourseServiceImpl implements CourseService {
             if (role != UserRole.ADMIN) {
                 throw new AuthNotFoundException("Access denied for role: " + role);
             }
-        } catch (IllegalArgumentException ex) {
+        } catch (IllegalArgumentException e) {
+            LOGGER.debug("Invalid role value provided: {}", roleHeader, e);
             throw new AuthNotFoundException("Invalid role value: " + roleHeader);
         }
     }

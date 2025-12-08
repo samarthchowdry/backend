@@ -1,8 +1,9 @@
 package com.studentdetails.details.Exception;
 
-import java.io.Serial;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.ResponseStatus;
+
+import java.io.Serial;
 
 /**
  * Custom exception thrown when a Student with a given ID is not found.
@@ -15,6 +16,10 @@ public class StudentNotFoundException extends RuntimeException {
 
     public StudentNotFoundException(Long id) {
         super("Student not found with id: " + id);
+    }
+
+    public StudentNotFoundException(String message) {
+        super(message);
     }
 
 }

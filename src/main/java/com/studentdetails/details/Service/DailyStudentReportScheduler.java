@@ -1,14 +1,15 @@
 package com.studentdetails.details.Service;
 
-import com.studentdetails.details.Domain.DailyReportLog;
-import com.studentdetails.details.Domain.ReportScheduleConfig;
 import com.studentdetails.details.DTO.StudentProgressReportDTO;
 import com.studentdetails.details.DTO.StudentProgressReportResponseDTO;
+import com.studentdetails.details.Domain.DailyReportLog;
+import com.studentdetails.details.Domain.ReportScheduleConfig;
 import com.studentdetails.details.Repository.DailyReportLogRepository;
 import com.studentdetails.details.Repository.LoginInfoRepository;
 import com.studentdetails.details.Repository.ReportScheduleConfigRepository;
-import com.studentdetails.details.Service.NotificationService;
 import com.studentdetails.details.Utility.CsvUtil;
+import jakarta.annotation.PostConstruct;
+import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.Cell;
@@ -22,19 +23,16 @@ import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-import jakarta.annotation.PostConstruct;
-import jakarta.mail.internet.MimeMessage;
 import java.io.ByteArrayOutputStream;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
-import java.util.List;
 import java.util.Optional;
 
-/**
- * Scheduled job that generates a daily student progress Excel report and emails it to the admin.
- */
+
+// * Scheduled job that generates a daily student progress Excel report and emails it to the admin.
+
 @Component
 @RequiredArgsConstructor
 @Slf4j
@@ -49,39 +47,39 @@ public class DailyStudentReportScheduler {
 
     @Value("${spring.mail.username:samarthchowdry3@gmail.com}")
     private String mailUsername;
-    
+
     @Value("${app.report.admin-email:samarthchowdry3@gmail.com}")
     private String fallbackAdminEmail;
 
-    /**
-     * Checks on application startup if scheduled time has passed or it's past 11:00 PM and no report was sent today.
-     * If so, sends the report immediately to ensure daily delivery.
-     */
+
+//  Checks on application startup if scheduled time has passed or it's past 11:00 PM and no report was sent today.
+//  If so, sends the report immediately to ensure daily delivery.
+
     @PostConstruct
     public void checkAndSendReportOnStartup() {
         try {
             LocalDate today = LocalDate.now();
             LocalTime now = LocalTime.now();
-            
+
             // Check if a report was already successfully sent today
             boolean reportAlreadySent = dailyReportLogRepository.findAll().stream()
-                    .anyMatch(log -> log.getReportDate().equals(today) && 
-                                   log.getStatus() == DailyReportLog.ReportStatus.SENT);
-            
+                    .anyMatch(log -> log.getReportDate().equals(today) &&
+                            log.getStatus() == DailyReportLog.ReportStatus.SENT);
+
             if (reportAlreadySent) {
                 log.info("STARTUP CHECK: Report already sent today. No action needed.");
                 return;
             }
-            
+
             int[] schedule = getConfiguredReportSchedule();
             int configuredHour = schedule[0];
             int configuredMinute = schedule[1];
             LocalTime scheduledTime = LocalTime.of(configuredHour, configuredMinute);
-            
+
             // Check if scheduled time has passed or it's after 11:00 PM
             boolean scheduledTimePassed = now.isAfter(scheduledTime);
             boolean isAfter11PM = now.getHour() >= 23;
-            
+
             if (scheduledTimePassed || isAfter11PM) {
                 String reason = isAfter11PM ? "after 11:00 PM" : "scheduled time (" + scheduledTime + ") has passed";
                 log.warn("⚠️ STARTUP CHECK: Server started {} (current time: {}). " +
@@ -89,33 +87,33 @@ public class DailyStudentReportScheduler {
                 try {
                     generateAndSendReport(today);
                     log.info("✓ STARTUP CHECK: Daily report successfully sent on startup.");
-                } catch (Exception e) {
-                    log.error("✗ STARTUP CHECK: Failed to send report on startup. Error: {}", e.getMessage(), e);
+                } catch (Exception ex) {
+                    log.error("✗ STARTUP CHECK: Failed to send report on startup. Error: {}", ex.getMessage(), ex);
                 }
             } else {
-                log.debug("STARTUP CHECK: Current time is {} (scheduled time {} not reached yet). Scheduled tasks will handle report sending.", 
+                log.debug("STARTUP CHECK: Current time is {} (scheduled time {} not reached yet). Scheduled tasks will handle report sending.",
                         now, scheduledTime);
             }
-        } catch (Exception e) {
-            log.error("Error during startup check for daily report: {}", e.getMessage(), e);
+        } catch (Exception ex) {
+            log.error("Error during startup check for daily report: {}", ex.getMessage(), ex);
             // Don't fail startup if this check fails
         }
     }
 
-    /**
-     * Runs every minute and checks whether it is time to generate the daily report
-     * based on the configured hour and minute. Ensures only one report per day.
-     * Also includes fallback: if scheduled time has passed or it's after 11:00 PM and no report was sent, send it immediately.
-     */
+
+//  Runs every minute and checks whether it is time to generate the daily report
+//  based on the configured hour and minute. Ensures only one report per day.
+//  Also includes fallback: if scheduled time has passed or it's after 11:00 PM and no report was sent, send it immediately.
+
     @Scheduled(cron = "0 * * * * *")
     public void generateAndSendDailyStudentReport() {
         LocalDate today = LocalDate.now();
-        
+
         // Check if a report was already successfully sent today
         boolean reportAlreadySent = dailyReportLogRepository.findAll().stream()
-                .anyMatch(log -> log.getReportDate().equals(today) && 
-                               log.getStatus() == DailyReportLog.ReportStatus.SENT);
-        
+                .anyMatch(log -> log.getReportDate().equals(today) &&
+                        log.getStatus() == DailyReportLog.ReportStatus.SENT);
+
         if (reportAlreadySent) {
             log.debug("Daily student report for {} already sent. Skipping.", today);
             return;
@@ -124,73 +122,73 @@ public class DailyStudentReportScheduler {
         int[] schedule = getConfiguredReportSchedule();
         int configuredHour = schedule[0];
         int configuredMinute = schedule[1];
-        
+
         LocalTime now = LocalTime.now();
         LocalTime scheduledTime = LocalTime.of(configuredHour, configuredMinute);
         int currentHour = now.getHour();
         int currentMinute = now.getMinute();
-        
+
         // Check if it's the exact scheduled time (e.g., 10:45 AM)
         boolean isScheduledTime = (currentHour == configuredHour && currentMinute == configuredMinute);
-        
+
         // Check if scheduled time has passed (but before 11 PM) - send immediately
         boolean scheduledTimePassed = now.isAfter(scheduledTime) && currentHour < 23;
-        
+
         // Fallback: If it's 11:00 PM or later and no report was sent today, send it now
         boolean isAfter11PM = currentHour >= 23;
-        
+
         if (!isScheduledTime && !scheduledTimePassed && !isAfter11PM) {
-            log.debug("Current time {}:{} - scheduled time {}:{} not reached yet. Skipping.", 
+            log.debug("Current time {}:{} - scheduled time {}:{} not reached yet. Skipping.",
                     currentHour, currentMinute, configuredHour, configuredMinute);
             return;
         }
-        
+
         if (isScheduledTime) {
             log.info("Scheduled time reached: {}:{}. Generating daily report.", configuredHour, configuredMinute);
         } else if (scheduledTimePassed) {
             log.warn("⚠️ SCHEDULED TIME PASSED: Current time is {}:{} (scheduled was {}:{}). " +
-                    "No report sent today. Sending report now.", 
+                            "No report sent today. Sending report now.",
                     currentHour, currentMinute, configuredHour, configuredMinute);
         } else if (isAfter11PM) {
-            log.warn("⚠️ FALLBACK TRIGGERED: Current time is {}:{} (after 11:00 PM) and no report sent today. Sending report now.", 
+            log.warn("⚠️ FALLBACK TRIGGERED: Current time is {}:{} (after 11:00 PM) and no report sent today. Sending report now.",
                     currentHour, currentMinute);
         }
 
         try {
             generateAndSendReport(today);
-        } catch (Exception e) {
-            log.error("Failed to generate/send daily report. Error: {}", e.getMessage(), e);
+        } catch (Exception ex) {
+            log.error("Failed to generate/send daily report. Error: {}", ex.getMessage(), ex);
             // Don't rethrow - let it retry on next minute
         }
     }
 
-    /**
-     * Dedicated fallback scheduler that runs at exactly 11:00 PM every day.
-     * This ensures the daily report is sent even if the server ran late or the scheduled time was missed.
-     * Cron format: second minute hour day-of-month month day-of-week
-     * "0 0 23 * * *" = Every day at 11:00:00 PM
-     */
+
+//   Dedicated fallback scheduler that runs at exactly 11:00 PM every day.
+//   This ensures the daily report is sent even if the server ran late or the scheduled time was missed.
+//   Cron format: second minute hour day-of-month month day-of-week
+//   "0 0 23 * * *" = Every day at 11:00:00 PM
+
     @Scheduled(cron = "0 0 23 * * *")
     public void generateAndSendDailyStudentReportFallback() {
         LocalDate today = LocalDate.now();
-        
+
         log.info("=== 11:00 PM FALLBACK SCHEDULER TRIGGERED ===");
-        
+
         // Check if a report was already successfully sent today
         boolean reportAlreadySent = dailyReportLogRepository.findAll().stream()
-                .anyMatch(log -> log.getReportDate().equals(today) && 
-                               log.getStatus() == DailyReportLog.ReportStatus.SENT);
-        
+                .anyMatch(log -> log.getReportDate().equals(today) &&
+                        log.getStatus() == DailyReportLog.ReportStatus.SENT);
+
         if (reportAlreadySent) {
             log.info("Daily student report for {} already sent today. Fallback scheduler skipping.", today);
             return;
         }
-        
+
         // Check if there's a failed or incomplete report
         Optional<DailyReportLog> existingReport = dailyReportLogRepository.findAll().stream()
                 .filter(log -> log.getReportDate().equals(today))
                 .findFirst();
-        
+
         if (existingReport.isPresent()) {
             DailyReportLog.ReportStatus status = existingReport.get().getStatus();
             if (status == DailyReportLog.ReportStatus.FAILED) {
@@ -201,20 +199,20 @@ public class DailyStudentReportScheduler {
         } else {
             log.warn("⚠️ No report was sent today. Server may have run late. Sending report now at 11:00 PM fallback.");
         }
-        
+
         try {
             generateAndSendReport(today);
             log.info("=== ✓ 11:00 PM FALLBACK: Daily report successfully sent ===");
-        } catch (Exception e) {
-            log.error("=== ✗ 11:00 PM FALLBACK: Failed to send daily report ===", e);
+        } catch (Exception ex) {
+            log.error("=== ✗ 11:00 PM FALLBACK: Failed to send daily report ===", ex);
             // Don't rethrow - we've logged the error, and manual trigger can be used if needed
         }
     }
 
-    /**
-     * Manually trigger report generation (bypasses date check and time check).
-     * Used by the admin monitoring endpoint.
-     */
+
+//     * Manually trigger report generation (bypasses date check and time check).
+//     * Used by the admin monitoring endpoint.
+
     public void generateAndSendDailyStudentReportManually() {
         LocalDate today = LocalDate.now();
         log.info("Manual trigger: Generating daily report for {}", today);
@@ -277,24 +275,9 @@ public class DailyStudentReportScheduler {
             log.info("✓ Daily student report for {} successfully generated and emailed to {}", reportDate, recipientEmail);
 
             // Create an in-app notification for the admin UI
-            try {
-                notificationService.createNotification(
-                        "Daily report emailed",
-                        "Student progress report for " + reportDate + " has been emailed to " + recipientEmail
-                );
-            } catch (Exception notifError) {
-                log.warn("Failed to create notification, but report was sent successfully", notifError);
-            }
-        } catch (Exception e) {
-            log.error("✗ Failed to generate or send daily student report for {}", reportDate, e);
-            logEntry.setStatus(DailyReportLog.ReportStatus.FAILED);
-            String errorMsg = e.getMessage();
-            if (errorMsg == null || errorMsg.isBlank()) {
-                errorMsg = e.getClass().getSimpleName() + ": " + (e.getCause() != null ? e.getCause().getMessage() : "Unknown error");
-            }
-            logEntry.setErrorMessage(errorMsg);
-            dailyReportLogRepository.save(logEntry);
-            throw new RuntimeException("Failed to send daily report: " + errorMsg, e);
+            createNotificationSafely(reportDate, recipientEmail);
+        } catch (Exception ex) {
+            handleReportGenerationError(ex, reportDate, logEntry);
         }
     }
 
@@ -369,7 +352,7 @@ public class DailyStudentReportScheduler {
     private void sendReportEmail(String fileName, byte[] bytes, String recipientEmail) throws Exception {
         log.info("Preparing to send daily report email to: {}", recipientEmail);
         log.info("Email attachment size: {} bytes", bytes.length);
-        
+
         if (bytes.length == 0) {
             throw new IllegalStateException("Excel file is empty. Cannot send email with empty attachment.");
         }
@@ -393,16 +376,94 @@ public class DailyStudentReportScheduler {
             log.info("Attempting to send email with attachment '{}' ({} bytes) to {}", fileName, bytes.length, recipientEmail);
             mailSender.send(message);
             log.info("✓ Email sent successfully to {}", recipientEmail);
-        } catch (jakarta.mail.MessagingException me) {
-            log.error("Email messaging error: {}", me.getMessage(), me);
-            throw new Exception("Failed to send email: " + me.getMessage(), me);
-        } catch (org.springframework.mail.MailException me) {
-            log.error("Spring mail error: {}", me.getMessage(), me);
-            throw new Exception("Failed to send email: " + me.getMessage(), me);
-        } catch (Exception e) {
-            log.error("Unexpected error sending email: {}", e.getMessage(), e);
-            throw new Exception("Unexpected error sending email: " + e.getMessage(), e);
+        } catch (jakarta.mail.MessagingException messagingEx) {
+            handleMessagingException(messagingEx);
+        } catch (org.springframework.mail.MailException mailEx) {
+            handleMailException(mailEx);
+        } catch (Exception unexpectedEx) {
+            handleUnexpectedEmailError(unexpectedEx);
         }
+    }
+
+    /**
+     * Creates a notification safely, catching any exceptions.
+     *
+     * @param reportDate the report date
+     * @param recipientEmail the recipient email
+     */
+    private void createNotificationSafely(LocalDate reportDate, String recipientEmail) {
+        try {
+            notificationService.createNotification(
+                    "Daily report emailed",
+                    "Student progress report for " + reportDate + " has been emailed to " + recipientEmail
+            );
+        } catch (Exception _) {
+            log.warn("Failed to create notification, but report was sent successfully");
+        }
+    }
+
+    /**
+     * Handles report generation errors.
+     *
+     * @param ex the exception
+     * @param reportDate the report date
+     * @param logEntry the log entry
+     */
+    private void handleReportGenerationError(Exception ex, LocalDate reportDate, DailyReportLog logEntry) {
+        log.error("✗ Failed to generate or send daily student report for {}", reportDate, ex);
+        logEntry.setStatus(DailyReportLog.ReportStatus.FAILED);
+        String errorMsg = buildErrorMessage(ex);
+        logEntry.setErrorMessage(errorMsg);
+        dailyReportLogRepository.save(logEntry);
+        throw new RuntimeException("Failed to send daily report: " + errorMsg, ex);
+    }
+
+    /**
+     * Builds an error message from an exception.
+     *
+     * @param ex the exception
+     * @return the error message
+     */
+    private String buildErrorMessage(Exception ex) {
+        String errorMsg = ex.getMessage();
+        if (errorMsg == null || errorMsg.isBlank()) {
+            String causeMessage = ex.getCause() != null ? ex.getCause().getMessage() : "Unknown error";
+            errorMsg = ex.getClass().getSimpleName() + ": " + causeMessage;
+        }
+        return errorMsg;
+    }
+
+    /**
+     * Handles messaging exceptions.
+     *
+     * @param messagingEx the messaging exception
+     * @throws Exception the wrapped exception
+     */
+    private void handleMessagingException(jakarta.mail.MessagingException messagingEx) throws Exception {
+        log.error("Email messaging error: {}", messagingEx.getMessage(), messagingEx);
+        throw new Exception("Failed to send email: " + messagingEx.getMessage(), messagingEx);
+    }
+
+    /**
+     * Handles mail exceptions.
+     *
+     * @param mailEx the mail exception
+     * @throws Exception the wrapped exception
+     */
+    private void handleMailException(org.springframework.mail.MailException mailEx) throws Exception {
+        log.error("Spring mail error: {}", mailEx.getMessage(), mailEx);
+        throw new Exception("Failed to send email: " + mailEx.getMessage(), mailEx);
+    }
+
+    /**
+     * Handles unexpected email errors.
+     *
+     * @param unexpectedEx the unexpected exception
+     * @throws Exception the wrapped exception
+     */
+    private void handleUnexpectedEmailError(Exception unexpectedEx) throws Exception {
+        log.error("Unexpected error sending email: {}", unexpectedEx.getMessage(), unexpectedEx);
+        throw new Exception("Unexpected error sending email: " + unexpectedEx.getMessage(), unexpectedEx);
     }
 }
 

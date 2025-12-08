@@ -19,15 +19,27 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
-import java.util.stream.Collectors;
 
+/**
+ * Service implementation for report generation operations.
+ * This class is used by Spring Framework for dependency injection.
+ */
 @Service
 @Transactional(readOnly = true)
+@SuppressWarnings("unused") // Suppress unused warning - class is used by Spring Framework
 public class ReportServiceImpl implements ReportService {
 
     private final StudentRepository studentRepository;
 
+    /**
+     * Constructor for ReportServiceImpl.
+     * This constructor is used by Spring Framework for dependency injection.
+     *
+     * @param studentRepository the student repository
+     */
+    @SuppressWarnings("unused") // Suppress unused warning - constructor is used by Spring Framework
     public ReportServiceImpl(StudentRepository studentRepository) {
         this.studentRepository = studentRepository;
     }
@@ -35,12 +47,19 @@ public class ReportServiceImpl implements ReportService {
     @Override
     public StudentProgressReportResponseDTO generateStudentProgressReport() {
         List<Student> students = studentRepository.findAll();
-        List<StudentProgressReportDTO> reports = students.stream()
+        // Deduplicate students by ID to handle potential duplicates from JOIN FETCH
+        Map<Long, Student> uniqueStudents = new LinkedHashMap<>();
+        for (Student student : students) {
+            if (student != null && student.getId() != null) {
+                uniqueStudents.putIfAbsent(student.getId(), student);
+            }
+        }
+        List<StudentProgressReportDTO> reports = uniqueStudents.values().stream()
                 .map(this::mapStudent)
                 .sorted(Comparator.comparing(dto -> dto.getStudentName() != null
                         ? dto.getStudentName().toLowerCase()
                         : ""))
-                .collect(Collectors.toList());
+                .toList();
 
         long totalAssessments = reports.stream()
                 .mapToLong(StudentProgressReportDTO::getTotalAssessments)
@@ -74,7 +93,7 @@ public class ReportServiceImpl implements ReportService {
                 ? null
                 : student.getMarks().stream()
                 .map(StudentMark::getAssessedOn)
-                .filter(date -> date != null)
+                .filter(Objects::nonNull)
                 .max(LocalDate::compareTo)
                 .orElse(null);
 
@@ -96,21 +115,19 @@ public class ReportServiceImpl implements ReportService {
             return List.of();
         }
 
+        // Use LinkedHashMap to preserve insertion order and ensure uniqueness by course ID
         Map<Long, StudentCourseSummaryDTO> uniqueCourses = new LinkedHashMap<>();
         for (Course course : courses) {
-            if (course == null) {
-                continue;
+            if (course != null && course.getId() != null) {
+                Long id = course.getId();
+                // Only add if not already present (prevents duplicates)
+                uniqueCourses.computeIfAbsent(id, courseId -> StudentCourseSummaryDTO.builder()
+                        .courseId(courseId)
+                        .name(course.getName())
+                        .code(course.getCode())
+                        .credits(course.getCredits())
+                        .build());
             }
-            Long id = course.getId();
-            if (id == null) {
-                continue;
-            }
-            uniqueCourses.putIfAbsent(id, StudentCourseSummaryDTO.builder()
-                    .courseId(id)
-                    .name(course.getName())
-                    .code(course.getCode())
-                    .credits(course.getCredits())
-                    .build());
         }
         return new ArrayList<>(uniqueCourses.values());
     }
@@ -122,13 +139,12 @@ public class ReportServiceImpl implements ReportService {
 
         Map<String, SubjectAccumulator> accumulatorMap = new LinkedHashMap<>();
         for (StudentMark mark : marks) {
-            if (mark == null) {
-                continue;
+            if (mark != null) {
+                String subjectLabel = normalizeSubject(mark.getSubject());
+                SubjectAccumulator accumulator = accumulatorMap.computeIfAbsent(subjectLabel.toLowerCase(),
+                        _ -> new SubjectAccumulator(subjectLabel));
+                accumulator.accept(mark);
             }
-            String subjectLabel = normalizeSubject(mark.getSubject());
-            SubjectAccumulator accumulator = accumulatorMap.computeIfAbsent(subjectLabel.toLowerCase(),
-                    key -> new SubjectAccumulator(subjectLabel));
-            accumulator.accept(mark);
         }
 
         return accumulatorMap.values()
@@ -136,7 +152,7 @@ public class ReportServiceImpl implements ReportService {
                 .map(SubjectAccumulator::toDto)
                 .sorted(Comparator.comparing(StudentSubjectAnalyticsDTO::getPercentage,
                         Comparator.nullsLast(Comparator.reverseOrder())))
-                .collect(Collectors.toList());
+                .toList();
     }
 
     private String normalizeSubject(String subject) {

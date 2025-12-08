@@ -9,8 +9,13 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.util.List;
 
+/**
+ * Service implementation for notification operations.
+ * This class is used by Spring Framework for dependency injection.
+ */
 @AllArgsConstructor
 @Service
+@SuppressWarnings("unused") // Suppress unused warning - class is used by Spring Framework
 public class NotificationServiceImpl implements NotificationService {
 
     private final NotificationRepository notificationRepository;
@@ -33,7 +38,7 @@ public class NotificationServiceImpl implements NotificationService {
     @Override
     public Notification markAsRead(Long notificationId) {
         Notification notification = notificationRepository.findById(notificationId)
-                .orElseThrow(() -> new RuntimeException("Notification not found with id: " + notificationId));
+                .orElseThrow(() -> new IllegalArgumentException("Notification not found with id: " + notificationId));
         notification.setStatus(Notification.NotificationStatus.READ);
         return notificationRepository.save(notification);
     }

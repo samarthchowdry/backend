@@ -8,6 +8,9 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+/**
+ * Data Transfer Object for StudentMark entity.
+ */
 @Data
 @Builder
 @NoArgsConstructor

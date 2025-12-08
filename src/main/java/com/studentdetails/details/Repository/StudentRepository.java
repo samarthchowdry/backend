@@ -1,10 +1,12 @@
 package com.studentdetails.details.Repository;
 
-import com.studentdetails.details.Domain.Student;
 import com.studentdetails.details.DTO.StudentPerformanceDTO;
+import com.studentdetails.details.Domain.Student;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.lang.NonNull;
+
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -23,14 +25,13 @@ public interface StudentRepository extends JpaRepository<Student, Long> {
                                 @Param("branch") String branch,
                                 @Param("id") Long id);
 
+    @Override
     @Query("SELECT DISTINCT s FROM Student s LEFT JOIN FETCH s.courses LEFT JOIN FETCH s.marks")
+    @NonNull
     List<Student> findAll();
 
     @Query("SELECT DISTINCT s FROM Student s LEFT JOIN FETCH s.courses LEFT JOIN FETCH s.marks WHERE s.id = :id")
     Optional<Student> findByIdWithCourses(@Param("id") Long id);
-
-    Optional<Student> findByEmail(String email);
-    boolean existsByEmail(String email);
 
     @Query("SELECT COALESCE(MAX(s.id), 0) FROM Student s")
     Long findMaxId();
@@ -51,4 +52,7 @@ public interface StudentRepository extends JpaRepository<Student, Long> {
             ORDER BY s.name ASC
             """)
     List<StudentPerformanceDTO> fetchPerformanceSummary();
+
+    @Query("SELECT LOWER(TRIM(s.email)) FROM Student s WHERE s.email IS NOT NULL AND s.email != ''")
+    java.util.Set<String> findAllEmailAddresses();
 }

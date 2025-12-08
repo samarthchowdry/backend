@@ -8,6 +8,9 @@ import lombok.Setter;
 
 import java.time.LocalDateTime;
 
+/**
+ * Entity representing a broadcast email template for sending emails to all students.
+ */
 @Getter
 @Setter
 @AllArgsConstructor

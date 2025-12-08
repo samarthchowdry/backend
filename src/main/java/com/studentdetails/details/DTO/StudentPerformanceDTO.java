@@ -1,19 +1,23 @@
 package com.studentdetails.details.DTO;
+
 import lombok.Getter;
 import lombok.ToString;
+
 import java.time.LocalDate;
+
 @Getter
 @ToString
 public class StudentPerformanceDTO {
-    private Long studentId;
-    private String studentName;
-    private String branch;
-    private long totalAssessments;
-    private double totalScore;
-    private double totalMaxScore;
+    private final Long studentId;
+    private final String studentName;
+    private final String branch;
+    private final long totalAssessments;
+    private final double totalScore;
+    private final double totalMaxScore;
     private Double averageScore;
     private Double percentage;
-    private LocalDate lastAssessedOn;
+    private final LocalDate lastAssessedOn;
+
     public StudentPerformanceDTO(Long studentId,
                                  String studentName,
                                  String branch,

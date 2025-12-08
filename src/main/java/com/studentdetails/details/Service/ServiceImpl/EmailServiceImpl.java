@@ -1,26 +1,35 @@
 package com.studentdetails.details.Service.ServiceImpl;
+
 import com.studentdetails.details.Domain.EmailNotification;
 import com.studentdetails.details.Repository.EmailNotificationRepository;
 import com.studentdetails.details.Service.EmailService;
-import lombok.AllArgsConstructor;
+import jakarta.mail.internet.MimeMessage;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.mail.MailException;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.thymeleaf.TemplateEngine;
 import org.thymeleaf.context.Context;
 
-import jakarta.mail.internet.MimeMessage;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
-@AllArgsConstructor
+/**
+ * Service implementation for email operations.
+ * This class is used by Spring Framework for dependency injection.
+ */
+@RequiredArgsConstructor
 @Service
 @Slf4j
+@SuppressWarnings("unused") // Suppress unused warning - class is used by Spring Framework
 public class EmailServiceImpl implements EmailService {
 
     private static final int MAX_RETRIES = 3;
@@ -28,64 +37,44 @@ public class EmailServiceImpl implements EmailService {
     private final EmailNotificationRepository emailNotificationRepository;
     private final TemplateEngine templateEngine;
 
+    // Self-injection for async method calls (required for @Async to work via proxy)
+    // Field injection is required here as constructor injection would cause circular dependency
+    @Autowired
+    @Lazy
+    @SuppressWarnings("java:S6813") // Suppress field injection warning - self-injection requires field injection
+    private EmailServiceImpl self;
+
     @Override
     public void sendEmail(String toEmail, String subject, String body) {
         // Only queue the email; actual sending is handled by scheduled job
-        EmailNotification emailNotification = new EmailNotification();
-        emailNotification.setToEmail(toEmail);
-        emailNotification.setSubject(subject);
-        emailNotification.setBody(body);
-        emailNotification.setIsHtml(false);
-        emailNotification.setStatus(EmailNotification.EmailStatus.PENDING);
-        emailNotification.setSentTime(null);
-        emailNotification.setRetryCount(0);
-        emailNotification.setLastAttemptTime(null);
-        emailNotification.setLastError(null);
+        EmailNotification emailNotification = createEmailNotification(toEmail, subject, body, false);
         emailNotification = emailNotificationRepository.save(emailNotification);
 
         log.info("Queued email to {} with subject '{}'", toEmail, subject);
 
         // Attempt to send immediately so users don't need to wait for scheduler.
         // Scheduler will still retry failures later.
-        sendEmailAsyncWithRetry(emailNotification);
+        self.sendEmailAsyncWithRetry(emailNotification);
     }
 
     @Override
     public void sendEmailWithTemplate(String toEmail, String subject, String templateName, Map<String, Object> templateVariables) {
         try {
             // Process the template with the given variables
-            Context context = new Context();
-            if (templateVariables != null) {
-                templateVariables.forEach(context::setVariable);
-            }
-            
-            // Add subject to context for template use
-            context.setVariable("subject", subject);
-            
-            // Render the template
-            String htmlContent = templateEngine.process("email/" + templateName, context);
-            
+            String htmlContent = processTemplate(templateName, subject, templateVariables);
+
             // Queue the email with HTML content
-            EmailNotification emailNotification = new EmailNotification();
-            emailNotification.setToEmail(toEmail);
-            emailNotification.setSubject(subject);
-            emailNotification.setBody(htmlContent);
-            emailNotification.setIsHtml(true);
-            emailNotification.setStatus(EmailNotification.EmailStatus.PENDING);
-            emailNotification.setSentTime(null);
-            emailNotification.setRetryCount(0);
-            emailNotification.setLastAttemptTime(null);
-            emailNotification.setLastError(null);
+            EmailNotification emailNotification = createEmailNotification(toEmail, subject, htmlContent, true);
             emailNotification = emailNotificationRepository.save(emailNotification);
 
             log.info("Queued HTML email with template '{}' to {} with subject '{}'", templateName, toEmail, subject);
 
             // Attempt to send immediately so users don't need to wait for scheduler.
             // Scheduler will still retry failures later.
-            sendEmailAsyncWithRetry(emailNotification);
-        } catch (Exception e) {
+            self.sendEmailAsyncWithRetry(emailNotification);
+        } catch (RuntimeException e) {
             log.error("Error processing email template '{}' for {}: {}", templateName, toEmail, e.getMessage(), e);
-            throw new RuntimeException("Failed to process email template: " + e.getMessage(), e);
+            throw new IllegalStateException("Failed to process email template: " + e.getMessage(), e);
         }
     }
 
@@ -104,10 +93,70 @@ public class EmailServiceImpl implements EmailService {
         }
 
         log.info("Processing {} pending/failed email notifications", notifications.size());
-        notifications.forEach(this::sendEmailAsyncWithRetry);
+        // Process emails in parallel using parallel stream for better performance
+        notifications.parallelStream()
+                .forEach(self::sendEmailAsyncWithRetry);
     }
 
-    @Async
+    /**
+     * Creates an email notification with the given parameters.
+     *
+     * @param toEmail the recipient email
+     * @param subject the email subject
+     * @param body the email body
+     * @param isHtml whether the email is HTML
+     * @return the created email notification
+     */
+    private EmailNotification createEmailNotification(String toEmail, String subject, String body, boolean isHtml) {
+        EmailNotification emailNotification = new EmailNotification();
+        emailNotification.setToEmail(toEmail);
+        emailNotification.setSubject(subject);
+        emailNotification.setBody(body);
+        emailNotification.setIsHtml(isHtml);
+        emailNotification.setStatus(EmailNotification.EmailStatus.PENDING);
+        emailNotification.setSentTime(null);
+        emailNotification.setRetryCount(0);
+        emailNotification.setLastAttemptTime(null);
+        emailNotification.setLastError(null);
+        return emailNotification;
+    }
+
+    /**
+     * Processes a Thymeleaf template with the given variables.
+     *
+     * @param templateName the template name
+     * @param subject the email subject
+     * @param templateVariables the template variables
+     * @return the processed HTML content
+     */
+    private String processTemplate(String templateName, String subject, Map<String, Object> templateVariables) {
+        Context context = new Context();
+        if (templateVariables != null) {
+            templateVariables.forEach(context::setVariable);
+        }
+        context.setVariable("subject", subject);
+        return templateEngine.process("email/" + templateName, context);
+    }
+
+    /**
+     * Handles email send failure by updating notification status and logging error.
+     *
+     * @param notification the email notification
+     * @param attempt the attempt number
+     * @param e the exception that occurred
+     */
+    private void handleEmailSendFailure(EmailNotification notification, int attempt, Exception e) {
+        notification.setStatus(EmailNotification.EmailStatus.FAILED);
+        notification.setLastAttemptTime(LocalDateTime.now());
+        notification.setLastError(e.getMessage());
+        notification.setRetryCount(attempt);
+        emailNotificationRepository.save(notification);
+
+        log.error("Failed to send email id {} to {} on attempt {}",
+                notification.getId(), notification.getToEmail(), attempt, e);
+    }
+
+    @Async("emailTaskExecutor")
     protected void sendEmailAsyncWithRetry(EmailNotification notification) {
         if (notification.getRetryCount() >= MAX_RETRIES &&
                 notification.getStatus() == EmailNotification.EmailStatus.FAILED) {
@@ -146,15 +195,8 @@ public class EmailServiceImpl implements EmailService {
             emailNotificationRepository.save(notification);
 
             log.info("Successfully sent email id {} to {}", notification.getId(), notification.getToEmail());
-        } catch (Exception e) {
-            notification.setStatus(EmailNotification.EmailStatus.FAILED);
-            notification.setLastAttemptTime(LocalDateTime.now());
-            notification.setLastError(e.getMessage());
-            notification.setRetryCount(attempt);
-            emailNotificationRepository.save(notification);
-
-            log.error("Failed to send email id {} to {} on attempt {}",
-                    notification.getId(), notification.getToEmail(), attempt, e);
+        } catch (MailException | jakarta.mail.MessagingException ex) {
+            handleEmailSendFailure(notification, attempt, ex);
         }
     }
 

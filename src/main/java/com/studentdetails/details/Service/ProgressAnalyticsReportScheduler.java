@@ -25,10 +25,10 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
 
-/**
- * Scheduled job that generates a daily progress analytics report (from student-performance page)
- * and emails it to the admin at 10:50 AM.
- */
+
+// Scheduled job that generates a daily progress analytics report (from student-performance page)
+// and emails it to the admin at 10:50 AM.
+
 @Component
 @RequiredArgsConstructor
 @Slf4j
@@ -130,33 +130,9 @@ public class ProgressAnalyticsReportScheduler {
             log.info("Report log entry updated: ID={}, Status=SENT, SentAt={}", logEntry.getId(), logEntry.getSentAt());
 
             // Create an in-app notification for the admin UI
-            try {
-                notificationService.createNotification(
-                        "Progress analytics report emailed",
-                        "Progress analytics report for " + reportDate + " has been emailed to " + recipientEmail
-                );
-            } catch (Exception notifError) {
-                log.warn("Failed to create notification, but report was sent successfully", notifError);
-            }
-        } catch (Exception e) {
-            log.error("=== ✗ FAILED: Error generating or sending progress analytics report for {} ===", reportDate);
-            log.error("Error type: {}", e.getClass().getSimpleName());
-            log.error("Error message: {}", e.getMessage());
-            if (e.getCause() != null) {
-                log.error("Cause: {}", e.getCause().getMessage());
-            }
-            log.error("Full stack trace:", e);
-            
-            logEntry.setStatus(DailyReportLog.ReportStatus.FAILED);
-            String errorMsg = e.getMessage();
-            if (errorMsg == null || errorMsg.isBlank()) {
-                errorMsg = e.getClass().getSimpleName() + ": " + (e.getCause() != null ? e.getCause().getMessage() : "Unknown error");
-            }
-            logEntry.setErrorMessage(errorMsg);
-            dailyReportLogRepository.save(logEntry);
-            log.error("Report log entry updated: ID={}, Status=FAILED, ErrorMessage={}", logEntry.getId(), errorMsg);
-            
-            throw new RuntimeException("Failed to send progress analytics report: " + errorMsg, e);
+            createNotificationSafely(reportDate, recipientEmail);
+        } catch (Exception ex) {
+            handleReportGenerationError(ex, reportDate, logEntry);
         }
     }
 
@@ -199,10 +175,10 @@ public class ProgressAnalyticsReportScheduler {
         try {
             mailSender.send(message);
             log.info("=== ✓ Test email sent successfully ===");
-        } catch (Exception e) {
+        } catch (Exception ex) {
             log.error("=== ✗ Test email failed ===");
-            log.error("Error: {}", e.getMessage(), e);
-            throw e;
+            log.error("Error: {}", ex.getMessage(), ex);
+            throw ex;
         }
     }
 
@@ -270,45 +246,144 @@ public class ProgressAnalyticsReportScheduler {
                 log.info("  1. Spam/Junk folder");
                 log.info("  2. Gmail app password is correct");
                 log.info("  3. Email filters or rules");
-            } catch (Exception sendException) {
-                log.error("=== ✗ EMAIL SEND FAILED ===");
-                log.error("Exception during mailSender.send(): {}", sendException.getClass().getSimpleName());
-                log.error("Error message: {}", sendException.getMessage());
-                if (sendException.getCause() != null) {
-                    log.error("Root cause: {}", sendException.getCause().getMessage());
-                    log.error("Root cause type: {}", sendException.getCause().getClass().getSimpleName());
-                }
-                log.error("Full exception:", sendException);
-                throw sendException;
+            } catch (Exception sendEx) {
+                handleEmailSendError(sendEx);
+                throw sendEx;
             }
-        } catch (jakarta.mail.MessagingException me) {
-            log.error("=== ✗ EMAIL MESSAGING ERROR ===");
-            log.error("Error type: {}", me.getClass().getSimpleName());
-            log.error("Error message: {}", me.getMessage());
-            if (me.getCause() != null) {
-                log.error("Cause: {}", me.getCause().getMessage());
-            }
-            log.error("Full stack trace:", me);
-            throw new Exception("Failed to send email to " + recipientEmail + ": " + me.getMessage(), me);
-        } catch (org.springframework.mail.MailException me) {
-            log.error("=== ✗ SPRING MAIL ERROR ===");
-            log.error("Error type: {}", me.getClass().getSimpleName());
-            log.error("Error message: {}", me.getMessage());
-            if (me.getCause() != null) {
-                log.error("Cause: {}", me.getCause().getMessage());
-            }
-            log.error("Full stack trace:", me);
-            throw new Exception("Failed to send email to " + recipientEmail + ": " + me.getMessage(), me);
-        } catch (Exception e) {
-            log.error("=== ✗ UNEXPECTED ERROR ===");
-            log.error("Error type: {}", e.getClass().getSimpleName());
-            log.error("Error message: {}", e.getMessage());
-            if (e.getCause() != null) {
-                log.error("Cause: {}", e.getCause().getMessage());
-            }
-            log.error("Full stack trace:", e);
-            throw new Exception("Unexpected error sending email to " + recipientEmail + ": " + e.getMessage(), e);
+        } catch (jakarta.mail.MessagingException messagingEx) {
+            handleMessagingException(messagingEx, recipientEmail);
+        } catch (org.springframework.mail.MailException mailEx) {
+            handleMailException(mailEx, recipientEmail);
+        } catch (Exception unexpectedEx) {
+            handleUnexpectedEmailError(unexpectedEx, recipientEmail);
         }
+    }
+
+    /**
+     * Creates a notification safely, catching any exceptions.
+     *
+     * @param reportDate the report date
+     * @param recipientEmail the recipient email
+     */
+    private void createNotificationSafely(LocalDate reportDate, String recipientEmail) {
+        try {
+            notificationService.createNotification(
+                    "Progress analytics report emailed",
+                    "Progress analytics report for " + reportDate + " has been emailed to " + recipientEmail
+            );
+        } catch (Exception _) {
+            log.warn("Failed to create notification, but report was sent successfully");
+        }
+    }
+
+    /**
+     * Handles report generation errors.
+     *
+     * @param ex the exception
+     * @param reportDate the report date
+     * @param logEntry the log entry
+     */
+    private void handleReportGenerationError(Exception ex, LocalDate reportDate, DailyReportLog logEntry) {
+        log.error("=== ✗ FAILED: Error generating or sending progress analytics report for {} ===", reportDate);
+        log.error("Error type: {}", ex.getClass().getSimpleName());
+        log.error("Error message: {}", ex.getMessage());
+        if (ex.getCause() != null) {
+            log.error("Cause: {}", ex.getCause().getMessage());
+        }
+        log.error("Full stack trace:", ex);
+
+        logEntry.setStatus(DailyReportLog.ReportStatus.FAILED);
+        String errorMsg = buildErrorMessage(ex);
+        logEntry.setErrorMessage(errorMsg);
+        dailyReportLogRepository.save(logEntry);
+        log.error("Report log entry updated: ID={}, Status=FAILED, ErrorMessage={}", logEntry.getId(), errorMsg);
+
+        throw new RuntimeException("Failed to send progress analytics report: " + errorMsg, ex);
+    }
+
+    /**
+     * Builds an error message from an exception.
+     *
+     * @param ex the exception
+     * @return the error message
+     */
+    private String buildErrorMessage(Exception ex) {
+        String errorMsg = ex.getMessage();
+        if (errorMsg == null || errorMsg.isBlank()) {
+            String causeMessage = ex.getCause() != null ? ex.getCause().getMessage() : "Unknown error";
+            errorMsg = ex.getClass().getSimpleName() + ": " + causeMessage;
+        }
+        return errorMsg;
+    }
+
+    /**
+     * Handles email send errors.
+     *
+     * @param sendEx the exception
+     */
+    private void handleEmailSendError(Exception sendEx) {
+        log.error("=== ✗ EMAIL SEND FAILED ===");
+        log.error("Exception during mailSender.send(): {}", sendEx.getClass().getSimpleName());
+        log.error("Error message: {}", sendEx.getMessage());
+        if (sendEx.getCause() != null) {
+            log.error("Root cause: {}", sendEx.getCause().getMessage());
+            log.error("Root cause type: {}", sendEx.getCause().getClass().getSimpleName());
+        }
+        log.error("Full exception:", sendEx);
+    }
+
+    /**
+     * Handles messaging exceptions.
+     *
+     * @param messagingEx the messaging exception
+     * @param recipientEmail the recipient email
+     * @throws Exception the wrapped exception
+     */
+    private void handleMessagingException(jakarta.mail.MessagingException messagingEx, String recipientEmail) throws Exception {
+        log.error("=== ✗ EMAIL MESSAGING ERROR ===");
+        log.error("Error type: {}", messagingEx.getClass().getSimpleName());
+        log.error("Error message: {}", messagingEx.getMessage());
+        if (messagingEx.getCause() != null) {
+            log.error("Cause: {}", messagingEx.getCause().getMessage());
+        }
+        log.error("Full stack trace:", messagingEx);
+        throw new Exception("Failed to send email to " + recipientEmail + ": " + messagingEx.getMessage(), messagingEx);
+    }
+
+    /**
+     * Handles mail exceptions.
+     *
+     * @param mailEx the mail exception
+     * @param recipientEmail the recipient email
+     * @throws Exception the wrapped exception
+     */
+    private void handleMailException(org.springframework.mail.MailException mailEx, String recipientEmail) throws Exception {
+        log.error("=== ✗ SPRING MAIL ERROR ===");
+        log.error("Error type: {}", mailEx.getClass().getSimpleName());
+        log.error("Error message: {}", mailEx.getMessage());
+        if (mailEx.getCause() != null) {
+            log.error("Cause: {}", mailEx.getCause().getMessage());
+        }
+        log.error("Full stack trace:", mailEx);
+        throw new Exception("Failed to send email to " + recipientEmail + ": " + mailEx.getMessage(), mailEx);
+    }
+
+    /**
+     * Handles unexpected email errors.
+     *
+     * @param unexpectedEx the unexpected exception
+     * @param recipientEmail the recipient email
+     * @throws Exception the wrapped exception
+     */
+    private void handleUnexpectedEmailError(Exception unexpectedEx, String recipientEmail) throws Exception {
+        log.error("=== ✗ UNEXPECTED ERROR ===");
+        log.error("Error type: {}", unexpectedEx.getClass().getSimpleName());
+        log.error("Error message: {}", unexpectedEx.getMessage());
+        if (unexpectedEx.getCause() != null) {
+            log.error("Cause: {}", unexpectedEx.getCause().getMessage());
+        }
+        log.error("Full stack trace:", unexpectedEx);
+        throw new Exception("Unexpected error sending email to " + recipientEmail + ": " + unexpectedEx.getMessage(), unexpectedEx);
     }
 }
 

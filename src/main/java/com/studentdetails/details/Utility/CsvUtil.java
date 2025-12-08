@@ -13,13 +13,20 @@ import java.util.Optional;
  * Utility class for CSV operations and common report utilities to avoid code duplication across report generators.
  */
 public class CsvUtil {
-    
+
     private static final Logger log = LoggerFactory.getLogger(CsvUtil.class);
+
+    /**
+     * Private constructor to prevent instantiation of utility class.
+     */
+    private CsvUtil() {
+        throw new UnsupportedOperationException("Utility class cannot be instantiated");
+    }
 
     /**
      * Escapes a CSV value by wrapping it in quotes if it contains special characters.
      * Handles null values by returning an empty string.
-     * 
+     *
      * @param value the value to escape
      * @return the escaped CSV value
      */
@@ -36,7 +43,7 @@ public class CsvUtil {
 
     /**
      * Safely gets a string value, returning empty string if null.
-     * 
+     *
      * @param value the value to get
      * @return the value or empty string if null
      */
@@ -46,7 +53,7 @@ public class CsvUtil {
 
     /**
      * Formats a double value to 2 decimal places.
-     * 
+     *
      * @param value the value to format
      * @return formatted string
      */
@@ -56,7 +63,7 @@ public class CsvUtil {
 
     /**
      * Formats a double value to 2 decimal places, handling null values.
-     * 
+     *
      * @param value the value to format (can be null)
      * @return formatted string or empty string if null
      */
@@ -66,9 +73,9 @@ public class CsvUtil {
 
     /**
      * Calculates average score from total score and count.
-     * 
+     *
      * @param totalScore the total score
-     * @param count the number of assessments
+     * @param count      the number of assessments
      * @return average score, or 0.0 if count is 0
      */
     public static double calculateAverage(double totalScore, int count) {
@@ -77,8 +84,8 @@ public class CsvUtil {
 
     /**
      * Calculates percentage from score and max score.
-     * 
-     * @param score the score
+     *
+     * @param score    the score
      * @param maxScore the maximum possible score
      * @return percentage, or 0.0 if maxScore is 0
      */
@@ -88,10 +95,10 @@ public class CsvUtil {
 
     /**
      * Safely gets a value from an object, returning a default if null.
-     * 
-     * @param value the value to get
+     *
+     * @param value        the value to get
      * @param defaultValue the default value if null
-     * @param <T> the type of value
+     * @param <T>          the type of value
      * @return the value or default
      */
     public static <T> T safeValue(T value, T defaultValue) {
@@ -102,7 +109,7 @@ public class CsvUtil {
      * Gets the email address of the most recently logged in admin user.
      * If no admin is found, returns null.
      * This method is shared across multiple report schedulers to avoid duplication.
-     * 
+     *
      * @param loginInfoRepository the repository to query admin users
      * @return admin email address or null if not found
      */
@@ -111,14 +118,14 @@ public class CsvUtil {
             Optional<LoginInfo> admin = loginInfoRepository.findFirstByRoleOrderByLastLoginAtDesc(UserRole.ADMIN);
             if (admin.isPresent()) {
                 String email = admin.get().getEmail();
-                log.info("Found admin email from database: {} (last login: {})", 
+                log.info("Found admin email from database: {} (last login: {})",
                         email, admin.get().getLastLoginAt());
                 return email;
             } else {
                 log.warn("No admin user found in database. Checking all admin users...");
                 List<LoginInfo> admins = loginInfoRepository.findByRole(UserRole.ADMIN);
                 if (!admins.isEmpty()) {
-                    String email = admins.get(0).getEmail();
+                    String email = admins.getFirst().getEmail();
                     log.info("Found admin email from database: {}", email);
                     return email;
                 } else {
@@ -131,5 +138,6 @@ public class CsvUtil {
             return null;
         }
     }
+
 }
 

@@ -1,82 +1,91 @@
 package com.studentdetails.details.Resources;
 
 import com.studentdetails.details.DTO.CourseDTO;
+import com.studentdetails.details.Exception.CourseNotFoundException;
+import com.studentdetails.details.Repository.CourseRepository;
 import com.studentdetails.details.Service.CourseService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+/**
+ * REST controller for course-related endpoints.
+ * This class is used by Spring Framework for REST API handling.
+ */
 @RestController
-@CrossOrigin(origins = "http://localhost:4200")
-@RequestMapping("/courses")
+@RequestMapping({"/api/courses", "/courses"})
+@RequiredArgsConstructor
+@SuppressWarnings("unused") // Suppress unused warning - class is used by Spring Framework
 public class CourseController {
 
     private final CourseService courseService;
+    private final CourseRepository courseRepository;
 
-    public CourseController(CourseService courseService) {
-        this.courseService = courseService;
+    /**
+     * Counts the total number of courses.
+     *
+     * @return the total count
+     */
+    @GetMapping("/count")
+    public ResponseEntity<Long> getCoursesCount() {
+        long count = courseRepository.count();
+        return ResponseEntity.ok(count);
     }
 
+    /**
+     * Retrieves all courses.
+     * Supports optional filtering by name and code via query parameters.
+     *
+     * @param name optional course name filter
+     * @param code optional course code filter
+     * @return list of course DTOs
+     */
     @GetMapping
     public ResponseEntity<List<CourseDTO>> getAllCourses(
-            @RequestParam(name = "name", required = false) String name,
-            @RequestParam(name = "code", required = false) String code
-    ) {
-        return ResponseEntity.ok(courseService.getFilteredCourses(name, code));
+            @RequestParam(required = false) final String name,
+            @RequestParam(required = false) final String code) {
+        List<CourseDTO> allCourses = courseService.getAllCourses();
+        
+        // Apply filters if provided
+        if ((name != null && !name.isBlank()) || (code != null && !code.isBlank())) {
+            allCourses = allCourses.stream()
+                    .filter(course -> {
+                        boolean nameMatch = name == null || name.isBlank() || 
+                                (course.getName() != null && course.getName().toLowerCase().contains(name.toLowerCase()));
+                        boolean codeMatch = code == null || code.isBlank() || 
+                                (course.getCode() != null && course.getCode().toLowerCase().contains(code.toLowerCase()));
+                        return nameMatch && codeMatch;
+                    })
+                    .toList();
+        }
+        
+        return ResponseEntity.ok(allCourses);
     }
 
+    /**
+     * Retrieves a course by ID.
+     *
+     * @param id the course ID
+     * @return the course DTO
+     */
     @GetMapping("/{id}")
-    public ResponseEntity<CourseDTO> getCourseById(@PathVariable Long id) {
-        return ResponseEntity.ok(courseService.getCourseById(id));
+    public ResponseEntity<CourseDTO> getCourseById(@PathVariable final Long id) {
+        CourseDTO course = courseService.getCourseById(id);
+        return ResponseEntity.ok(course);
     }
 
-    @GetMapping("/count")
-    public ResponseEntity<Long> getCourseCount() {
-        return ResponseEntity.ok(courseService.countCourses());
-    }
-
-    @PostMapping
-    public ResponseEntity<CourseDTO> createCourse(
-            @RequestBody CourseDTO courseDTO,
-            @RequestHeader(name = "X-Role", required = false) String roleHeader) {
-        return ResponseEntity.ok(courseService.createCourseWithAuth(courseDTO, roleHeader));
-    }
-
-    @PutMapping("/{id}")
-    public ResponseEntity<CourseDTO> updateCourse(
-            @PathVariable Long id,
-            @RequestBody CourseDTO courseDTO,
-            @RequestHeader(name = "X-Role", required = false) String roleHeader) {
-        return ResponseEntity.ok(courseService.updateCourseWithAuth(id, courseDTO, roleHeader));
-    }
-
-    @DeleteMapping("/{id}")
-    public ResponseEntity<String> deleteCourse(
-            @PathVariable Long id,
-            @RequestHeader(name = "X-Role", required = false) String roleHeader) {
-        courseService.deleteCourseWithAuth(id, roleHeader);
-        return ResponseEntity.ok("Course with ID " + id + " deleted successfully");
-    }
-
-    @PostMapping("/{courseId}/students/{studentId}")
-    public ResponseEntity<CourseDTO> addStudentToCourse(
-            @PathVariable Long courseId,
-            @PathVariable Long studentId,
-            @RequestHeader(name = "X-Role", required = false) String roleHeader) {
-        return ResponseEntity.ok(courseService.addStudentToCourseWithAuth(courseId, studentId, roleHeader));
-    }
-
-    @DeleteMapping("/{courseId}/students/{studentId}")
-    public ResponseEntity<CourseDTO> removeStudentFromCourse(
-            @PathVariable Long courseId,
-            @PathVariable Long studentId,
-            @RequestHeader(name = "X-Role", required = false) String roleHeader) {
-        return ResponseEntity.ok(courseService.removeStudentFromCourseWithAuth(courseId, studentId, roleHeader));
-    }
-
-    @GetMapping("/student/{studentId}")
-    public ResponseEntity<List<CourseDTO>> getCoursesByStudent(@PathVariable Long studentId) {
-        return ResponseEntity.ok(courseService.getCoursesByStudent(studentId));
+    /**
+     * Exception handler for CourseNotFoundException.
+     *
+     * @param ex the exception
+     * @return not found response
+     */
+    @ExceptionHandler(CourseNotFoundException.class)
+    public ResponseEntity<String> handleCourseNotFound(final CourseNotFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ex.getMessage());
     }
 }
+

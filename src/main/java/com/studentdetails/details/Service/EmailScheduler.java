@@ -16,14 +16,11 @@ public class EmailScheduler {
     private final EmailService emailService;
 
     /**
-     * Runs once a day at 06:00 AM server time.
+     * Processes pending emails. Runs every minute.
      * Cron format: second minute hour day-of-month month day-of-week
+     * For production, use: @Scheduled(cron = "0 0 6 * * *") to run once a day at 06:00 AM
      */
-    // for  a day
-    // @Scheduled(cron = "0 0 6 * * *")
-    //for  1 minute testing only
-    @Scheduled(cron = "0 * * * * *") // every minute
-
+    @Scheduled(cron = "0 * * * * *")
     public void processPendingEmailsDaily() {
         log.info("Starting scheduled job: processPendingEmailsDaily");
         emailService.processPendingEmails();

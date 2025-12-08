@@ -1,8 +1,8 @@
 spring:
   datasource:
-    url: jdbc:mysql://localhost:3306/studentdb2
-    username: root
-    password: aA@94495
+    url: ${DB_URL:jdbc:mysql://localhost:3306/studentdb2?useSSL=false&serverTimezone=UTC&useLegacyDatetimeCode=false&allowPublicKeyRetrieval=true&useInformationSchema=true&nullCatalogMeansCurrent=true&useServerPrepStmts=true&cachePrepStmts=true&prepStmtCacheSize=250&prepStmtCacheSqlLimit=2048}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:aA@94495}
     driver-class-name: com.mysql.cj.jdbc.Driver
 
   jpa:
@@ -11,10 +11,12 @@ spring:
     show-sql: false       # shows SQL queries in the console
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.MySQL8Dialect
-
+        # Explicitly use MySQL 8+ compatible dialect
+        # This ensures MySQL 8.0+ features work correctly
+        dialect: org.hibernate.dialect.MySQLDialect
+        # Suppress version warning by explicitly setting compatibility
+        format_sql: false
   # Email configuration
-
   mail:
     host: smtp.gmail.com
     port: 587
@@ -26,14 +28,15 @@ spring:
           auth: true
           starttls:
             enable: true
-          connectiontimeout: 5000
-          timeout: 5000
-          writetimeout: 5000
-
+          connectiontimeout: 30000
+          timeout: 30000
+          writetimeout: 30000
+          pool:
+            size: 5
+            wait: true
   task:
     scheduling:
       time-zone: Asia/Kolkata
-
   # Thymeleaf configuration for email templates
   thymeleaf:
     prefix: classpath:/templates/
@@ -41,10 +44,21 @@ spring:
     mode: HTML
     encoding: UTF-8
     cache: false  # Set to true in production
-
 google:
    clientId: 1084932926067-r73ufmbchmbskh7e1agvplfh82ic68f5.apps.googleusercontent.com
-
 app:
   report:
     admin-email: ${ADMIN_EMAIL:samarthchowdry3@gmail.com}
+  # JWT Configuration - Change secret in production!
+  jwt:
+    secret: ${JWT_SECRET:defaultSecretKeyForDevelopmentOnlyChangeInProduction12345678901234567890}
+    expiration: ${JWT_EXPIRATION:86400000} # 24 hours in milliseconds
+    issuer: ${JWT_ISSUER:student-management-system}
+  # Security Configuration - Flexible for client/organization use
+  security:
+    # Comma-separated list of allowed origins (for CORS)
+    allowed-origins: ${ALLOWED_ORIGINS:http://localhost:4200,http://127.0.0.1:4200}
+    # Enable CSRF protection (set to true in production)
+    enable-csrf: ${ENABLE_CSRF:false}
+    # Paths that don't require authentication (comma-separated)
+    permit-all-paths: ${PERMIT_ALL_PATHS:/api/auth/**,/api/public/**}
